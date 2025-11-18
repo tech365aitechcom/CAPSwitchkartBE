@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Receipt</title>
+  </head>
+  <body style="font-family: Arial, sans-serif; padding: 2rem; font-size: 14px; background: #ffffff; border: 2px solid rgba(97, 97, 97, 0.3);">
+    <!-- Logo -->
+    <div style="text-align: center; margin-bottom: 1rem;">
+      <img src="{{logoUrl}}" alt="Logo" style="width: 300px; height: 80px;" />
+    </div>
+
+    <!-- Company Info -->
+    <div style="text-align: center; font-size: 0.875rem; color: #1b0d6c; margin-bottom: 0.5rem;">
+      <p style="margin: 2px;">{{companyName}}, <span style="color: #ec2752;">GSTIN/UIN:</span> {{companyGstin}}</p>
+      <p style="margin: 2px;"><span style="color: #ec2752;">Address:</span> {{companyAddress}}</p>
+      <p style="margin: 2px;"><span style="color: #ec2752;">Contact:</span> {{companyContact}}, <span style="color: #ec2752;">E-mail:</span> {{companyEmail}}</p>
+    </div>
+
+    <!-- Title -->
+    <div style="text-align: center;">
+      <p style="font-weight: bold; font-size: 20px; margin: 2px;">PURCHASE RECEIPT</p>
+    </div>
+
+    <!-- Transaction + Seller Info -->
+    <table style="width: 100%; margin-top: 1rem; border-collapse: collapse;">
+      <tr>
+        <td style="width: 30%; vertical-align: top;">
+          <p style="margin: 2px;"><strong>Transaction ID:</strong> {{uniqueCode}}</p>
+          <p style="margin: 2px;"><strong>Date:</strong> {{formattedDate}}</p>
+        </td>
+        <td style="width: 70%; vertical-align: top; border: 2px solid black; padding: 0.5rem;">
+          <p style="margin: 2px;"><strong>Purchased From:</strong> {{name}}</p>
+          <p style="margin: 2px;">Contact: {{maskedPhoneNumber}}</p>
+          <p style="margin: 2px;">Email: {{maskedEmail}}</p>
+          <p style="margin: 2px;">Aadhar No.: {{aadharNumber}}</p>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Item Info -->
+    <table style="width: 100%; margin-top: 1rem; border-collapse: collapse;">
+      <tr>
+        <th style="text-align: left;">S.No.</th>
+        <th style="text-align: left;">ITEM</th>
+        <th style="text-align: left;">PRICE</th>
+      </tr>
+      <tr>
+        <td>1</td>
+        <td>{{phoneName}} {{RAMStorage}}</td>
+        <td style="text-align: left;">&#8377; {{price}}/-</td>
+      </tr>
+    </table>
+
+    <!-- IMEI / Serial -->
+    <table style="width: 100%; margin-top: 1rem;">
+      <tr>
+        <td style="width: 30%;"><p style="margin: 2px;">IMEI No.:</p><p style="margin: 2px;">Serial Number(if Laptop):</p></td>
+        <td><p style="margin: 2px;">{{imeiNumber}}</p><p style="margin: 2px;">{{LaptopimeiNumber}}</p></td>
+      </tr>
+    </table>
+
+    <hr style="margin-top: 2.5rem;" />
+
+    <!-- Store Info -->
+    <div style="text-align: center; margin-top: 0.75rem; padding: 1rem 0; border-bottom: 2px dashed black;">
+      <p style="font-weight: bold; font-size: 1.25rem; margin-bottom: 0.5rem;">Via Retail Store Partner:</p>
+      <p style="margin: 2px;">{{storeName}}</p>
+      <p style="text-transform: uppercase;">{{address}}</p>
+      <p style="font-size: 0.875rem;">This is a Computer Generated Purchase Receipt and does not require signature or stamp</p>
+    </div>
+
+    <hr style="margin-top: 0.75rem;" />
+
+    <!-- Indemnity Bond -->
+    <div style="text-align: center; margin-top: 0.75rem;">
+      <p style="font-weight: bold; font-size: 1.25rem; margin: 1rem 0;">IDEMNITY BOND</p>
+      <p style="margin: 2px;">
+        This bond of idemnity is made and executed by:
+        <span style="font-weight: bold; text-decoration: underline;">{{name}}</span> herein after referred to as "Seller" who has come in Retail store of
+        <span style="font-weight: bold; text-decoration: underline;">{{storeName}}</span> to sell his/her old Gadget, to the
+        {{websiteShortName}} Network herein after referred to as "Purchaser" which expression shall mean and include its
+        representative, executors, nominee, partners, affiliates and assigns on day of
+        <span style="font-weight: bold;">{{formattedDate}}</span>
+      </p>
+    </div>
+
+    <div style="margin-top: 0.75rem;">
+      <p style="margin: 2px;">Scheme Title: Buyback</p>
+      <p style="font-weight: bold; margin-top: 4rem; margin-bottom: 0.5rem;">Seller Name and Sign</p>
+    </div>
+
+    <!-- Terms Page -->
+    <div style="page-break-before: always; width: 100%;">
+      <div style="font-size: 14px; line-height: 1.5; margin-top: 4rem;">
+        <div style="text-align: center;">
+          <p style="font-weight: bold; font-size: 1.25rem; margin: 1rem 0;">TERMS & CONDITIONS</p>
+        </div>
+        <ol style="text-align: left; padding-left: 1.25rem;">
+          <li>The Customer/Seller confirms that they are the rightful owner of the Gadget/Device and assume full responsibility for any liabilities related to its ownership.</li>
+          <li>The Customer/Seller affirms that all personal data has been completely removed from the device, and the Company shall not be held responsible for any data-related issues.</li>
+          <li>The Customer/Seller agrees to indemnify and hold the Company harmless against any third-party claims arising from the ownership, data, condition of the device, or any criminal matters related to the device.</li>
+          <li>Payment will be processed as per the agreed terms. Any discrepancies must be reported within 2 hours of the transaction. Return and refund requests, if applicable, must comply with the Company's return policy.</li>
+          <li>Any disputes or disagreements between the Customer/Seller and Purchaser shall be exclusively resolved under the jurisdiction of the courts located in {{courtJurisdiction}} only.</li>
+        </ol>
+        <div style="text-align: right; margin-top: 4rem;">
+          <p style="font-weight: bold;">SIGNATURES</p>
+          <p style="font-weight: bold; margin-top: 4rem;">(SELLER)</p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
