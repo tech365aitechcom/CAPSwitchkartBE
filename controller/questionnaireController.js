@@ -193,7 +193,7 @@ function FuncMajorUpd(QNA, query) {
   query.functionalMajorCode = FUNCTIONAL_MAJOR3;
   if (!functionalMajor.length) {
     functionalMajor = QNA["Functional Major"].filter(
-      (e) => e.answer === FUNCTIONAL_MAJOR2
+      (e) => e.answer === FUNCTIONAL_MAJOR2,
     );
     query.functionalMajorCode = FUNCTIONAL_MAJOR2;
     if (!functionalMajor.length) {
@@ -210,7 +210,7 @@ function FuncMinorUpd(QNA, query) {
   query.functionalMinorCode = FUNCTIONAL_MINOR3;
   if (!functionalMinor.length) {
     functionalMinor = QNA["Functional Minor"].filter(
-      (e) => e.answer === FUNCTIONAL_MINOR2
+      (e) => e.answer === FUNCTIONAL_MINOR2,
     );
     query.functionalMinorCode = FUNCTIONAL_MINOR2;
     if (!functionalMinor.length) {
@@ -263,7 +263,7 @@ const calculatePrice = async (req, res) => {
 
     if (!priceData || !priceData.grades) {
       console.error(
-        `No price data found for modelId: ${modelId}, storage: ${storage}, ram: ${ram}`
+        `No price data found for modelId: ${modelId}, storage: ${storage}, ram: ${ram}`,
       );
       return res.status(404).json({
         success: false,
@@ -307,7 +307,7 @@ const calculatePrice = async (req, res) => {
       userDetails,
       modelDetails,
       gradeData,
-      price
+      price,
     );
     console.log(obj);
 
@@ -315,7 +315,7 @@ const calculatePrice = async (req, res) => {
     const { lead, uniqueCode } = await generateLeadAndUpdateOrCreate(
       req,
       obj,
-      buildQueryParam(phoneNumber, modelId, storage, ram, req.userId)
+      buildQueryParam(phoneNumber, modelId, storage, ram, req.userId),
     );
     console.log(gradeData);
 
@@ -341,7 +341,7 @@ const buildQuery = (QNA) => {
     QNA.Core?.some(
       (q) =>
         (Array.isArray(q?.selected) && q.selected[0] === true) ||
-        q?.key === "yes"
+        q?.key === "yes",
     )
   ) {
     query.coreCode = CORE2;
@@ -377,7 +377,9 @@ const buildQuery = (QNA) => {
 const fetchGradeData = async (query) => {
   if (query.coreCode !== CORE2) {
     const { coreCode, ...filteredQuery } = query;
+    console.log("filteredquery: ", filteredQuery);
     const result = await phoneCondition.findOne(filteredQuery).select("grade");
+    console.log("result fetchgradedata", result);
 
     // If no matching condition is found, default to 'D' (exists in both CTG1 and CTG2)
     if (!result) {
@@ -409,7 +411,7 @@ const calculatePriceFromGrades = (priceData, gradeData, query) => {
   const availableGrades = Object.keys(priceData.grades)
     .filter(
       (key) =>
-        priceData.grades[key] !== null && priceData.grades[key] !== undefined
+        priceData.grades[key] !== null && priceData.grades[key] !== undefined,
     )
     .sort();
 
@@ -437,7 +439,7 @@ const calculatePriceFromGrades = (priceData, gradeData, query) => {
 
   // Fallback: Find the closest lower grade or use lowest available
   console.warn(
-    `Grade ${gradeData.grade} (${convertedGrade}) not found in price data. Using fallback logic.`
+    `Grade ${gradeData.grade} (${convertedGrade}) not found in price data. Using fallback logic.`,
   );
 
   // Define grade hierarchy from best to worst
@@ -463,7 +465,7 @@ const calculatePriceFromGrades = (priceData, gradeData, query) => {
   for (let i = requestedIndex; i < gradeHierarchy.length; i++) {
     if (priceData.grades[gradeHierarchy[i]] !== undefined) {
       console.log(
-        `Using grade ${gradeHierarchy[i]} instead of ${convertedGrade}`
+        `Using grade ${gradeHierarchy[i]} instead of ${convertedGrade}`,
       );
       return priceData.grades[gradeHierarchy[i]];
     }
@@ -520,7 +522,7 @@ const customerDetail = async (req, res) => {
         emailId,
         is_selled: true,
         userId: "6540d7df4058702d148699e8",
-      }
+      },
     );
     return res.status(200).json({ message: "Customer Details Added" });
   } catch (error) {
@@ -560,6 +562,7 @@ const itemPurchased = async (req, res) => {
   try {
     const lead = await leadsController.getLeadById(req.body.id);
     if (!lead || lead.userId._id.toString() !== req.userId) {
+      console.log("entered lead or userId check");
       return res
         .status(400)
         .json({ success: false, message: "Invalid user or id" });
@@ -633,7 +636,7 @@ const itemPurchased = async (req, res) => {
     const pdfResponse = await axios.post(
       "https://13uvilapjl.execute-api.ap-south-1.amazonaws.com/api/pdf",
       form,
-      { headers: form.getHeaders() }
+      { headers: form.getHeaders() },
     );
 
     const base64Data = pdfResponse.data;
@@ -822,7 +825,7 @@ const update = async (req, res) => {
     const result = await questionnaire.findByIdAndUpdate(
       { _id: req.body._id || req.body.id },
       req.body,
-      { new: true }
+      { new: true },
     );
     return res.status(200).json({ result });
   } catch (error) {
@@ -912,7 +915,7 @@ const calculatePriceWatch = async (req, res) => {
     if (!gradeData) {
       console.error(
         "No matching grade condition found for watch query:",
-        query
+        query,
       );
       // Default to lowest grade 'E' if no condition matches
       gradeData = { grade: "E" };
@@ -963,7 +966,7 @@ const calculatePriceWatch = async (req, res) => {
     const { lead, uniqueCode } = await generateLeadAndUpdateOrCreate(
       req,
       obj,
-      queryParam
+      queryParam,
     );
     return res.status(200).json({
       data: {
