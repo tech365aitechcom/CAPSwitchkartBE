@@ -4,6 +4,7 @@ import models from "../models/modelsModel.js";
 import gradeprices from "../models/gradePriceModel.js";
 import phoneCondition from "../models/phoneConditon.js";
 import documents from "../models/documents.model.js";
+import groups from "../models/groupsModel.js";
 import XLSX from "xlsx";
 import axios from "axios";
 import FormData from "form-data";
@@ -171,6 +172,31 @@ const findAll = async (req, res) => {
   }
 };
 
+// ==================== DYNAMIC GROUP CODE CALCULATION ====================
+
+/**
+ * Dynamically calculate the highest code for any group
+ * @param {Array} groupAnswers - Array of answers for a specific group
+ * @param {Array} possibleCodes - Array of possible codes for this group (sorted from highest to lowest priority)
+ * @returns {String} - The highest matching code
+ */
+function calculateGroupCode(groupAnswers, possibleCodes) {
+  if (!groupAnswers || groupAnswers.length === 0) {
+    return possibleCodes[possibleCodes.length - 1]; // Return lowest code as default
+  }
+
+  // Check each code from highest to lowest priority
+  for (const code of possibleCodes) {
+    const matchingAnswers = groupAnswers.filter((e) => e.answer === code);
+    if (matchingAnswers.length > 0) {
+      return code;
+    }
+  }
+
+  // If no match found, return the lowest code
+  return possibleCodes[possibleCodes.length - 1];
+}
+
 function DisplayCodeUpd(QNA, query) {
   let display = QNA?.Display
     ? QNA.Display.filter((e) => e.answer === DISPLAY3)
@@ -335,62 +361,100 @@ const calculatePrice = async (req, res) => {
 };
 
 // Helper Functions
-const buildQuery = (QNA) => {
+/**
+ * Build query object dynamically from QNA
+ * @param {Object} QNA - Contains all group answers
+ * @returns {Object} - Query object with all group codes
+ */
+function buildQuery(QNA) {
   const query = {};
-  if (
-    QNA.Core?.some(
-      (q) =>
-        (Array.isArray(q?.selected) && q.selected[0] === true) ||
-        q?.key === "yes",
-    )
-  ) {
-    query.coreCode = CORE2;
-  } else {
-    query.coreCode = CORE1;
+
+  // Core group
+  if (QNA.Core) {
+    const coreCodes = [CORE2, CORE1];
+    query.coreCode = calculateGroupCode(QNA.Core, coreCodes);
   }
-  if (QNA.Warranty?.length) {
-    const warranty = QNA.Warranty.filter((e) => e.answer === WARRANTY1);
-    query.warrentyCode = warranty.length ? WARRANTY1 : WARRANTY2;
+
+  // Display group
+  if (QNA.Display) {
+    const displayCodes = [DISPLAY3, DISPLAY2, DISPLAY1];
+    query.displayCode = calculateGroupCode(QNA.Display, displayCodes);
   }
-  if (QNA.Display?.length) {
-    DisplayCodeUpd(QNA, query);
+
+  // Functional Major group
+  if (QNA["Functional Major"]) {
+    const functionalMajorCodes = [
+      FUNCTIONAL_MAJOR3,
+      FUNCTIONAL_MAJOR2,
+      FUNCTIONAL_MAJOR1,
+    ];
+    query.functionalMajorCode = calculateGroupCode(
+      QNA["Functional Major"],
+      functionalMajorCodes,
+    );
   }
-  if (QNA["Functional Major"]?.length) {
-    FuncMajorUpd(QNA, query);
+
+  // Functional Minor group
+  if (QNA["Functional Minor"]) {
+    const functionalMinorCodes = [
+      FUNCTIONAL_MINOR3,
+      FUNCTIONAL_MINOR2,
+      FUNCTIONAL_MINOR1,
+    ];
+    query.functionalMinorCode = calculateGroupCode(
+      QNA["Functional Minor"],
+      functionalMinorCodes,
+    );
   }
-  if (QNA["Functional Minor"]?.length) {
-    FuncMinorUpd(QNA, query);
+
+  // Cosmetics group
+  if (QNA.Cosmetics) {
+    const cosmeticsCodes = [COSMETICS4, COSMETICS3, COSMETICS2, COSMETICS1];
+    query.cosmeticsCode = calculateGroupCode(QNA.Cosmetics, cosmeticsCodes);
   }
-  if (QNA.Cosmetics?.length) {
-    CosmeticsUpd(QNA, query);
+
+  // Warranty group
+  if (QNA.Warranty) {
+    const warrantyCodes = [WARRANTY1, WARRANTY2];
+    const warrantyMatches = QNA.Warranty.filter((e) => e.answer === WARRANTY1);
+    query.warrentyCode = warrantyMatches.length ? WARRANTY1 : WARRANTY2;
   }
-  // if (QNA.Functional?.length) {
-  //   FunctionalUpd(QNA, query);
-  // }
-  if (QNA.Accessories?.length) {
-    AccessoriesUpd(QNA, query);
+
+  // Accessories group
+  if (QNA.Accessories) {
+    const accessoriesCodes = [ACCESSORIES3, ACCESSORIES1, ACCESSORIES2];
+    query.accessoriesCode = calculateGroupCode(
+      QNA.Accessories,
+      accessoriesCodes,
+    );
   }
+
+  // Handle any new groups dynamically
+  // If a group doesn't match the above, it will be skipped for now
+  // You can extend this logic to handle completely dynamic groups from database
+
   return query;
-};
+}
 
-// [Updated function]
-const fetchGradeData = async (query) => {
-  if (query.coreCode !== CORE2) {
-    const { coreCode, ...filteredQuery } = query;
-    console.log("filteredquery: ", filteredQuery);
-    const result = await phoneCondition.findOne(filteredQuery).select("grade");
-    console.log("result fetchgradedata", result);
+/**
+ * Fetch grade data from phoneCondition collection
+ */
+async function fetchGradeData(query) {
+  try {
+    const gradeData = await phoneCondition.findOne(query).select("grade");
 
-    // If no matching condition is found, default to 'D' (exists in both CTG1 and CTG2)
-    if (!result) {
-      console.warn("No grade condition found, defaulting to grade D");
-      return { grade: "D" };
+    if (!gradeData) {
+      console.error("No matching grade condition found for query:", query);
+      // Return default grade E if no condition matches
+      return { grade: "E" };
     }
-    return result;
+
+    return gradeData;
+  } catch (error) {
+    console.error("Error fetching grade data:", error);
+    throw error;
   }
-  // For core issues, return grade D (guaranteed to exist)
-  return { grade: "D" };
-};
+}
 
 const fetchPriceData = async (modelId, storage, ram) => {
   return gradeprices
