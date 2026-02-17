@@ -3,21 +3,20 @@ const { Schema } = mongoose;
 
 const companySchema = new Schema(
     {
-        companyName: {
+        name: {
             type: String,
-            required: true
-        },
-        uniqueId: {
-            type: String,
-            required: true
+            required: true,
+            trim: true
         },
         companyCode: {
             type: String,
-            required: true
+            unique: true,
+            sparse: true // Auto-generated after creation
         },
         contactNumber: {
             type: String,
-            required: true
+            required: true,
+            trim: true
         },
         address: {
             type: String,
@@ -26,15 +25,38 @@ const companySchema = new Schema(
         gstNumber: {
             type: String,
             required: true,
-            unique: true
+            unique: true,
+            trim: true,
+            uppercase: true
         },
         panNumber: {
             type: String,
-            required: true
+            required: true,
+            trim: true,
+            uppercase: true
         },
         remarks: {
             type: String,
-            required: true
+            default: ''
+        },
+        showPrice: {
+            type: Boolean,
+            default: false
+        },
+        maskInfo: {
+            type: Boolean,
+            default: false
+        },
+        attachedDocuments: [{
+            fileName: String,
+            fileUrl: String,
+            fileType: String,
+            uploadedAt: { type: Date, default: Date.now }
+        }],
+        status: {
+            type: String,
+            enum: ['active', 'inactive'],
+            default: 'active'
         },
         createdBy: {
             type: Schema.Types.ObjectId,
@@ -44,8 +66,7 @@ const companySchema = new Schema(
         updatedBy: {
             type: Schema.Types.ObjectId,
             ref: 'users',
-        },
-        documents: []
+        }
     },
     { timestamps: true }
 );

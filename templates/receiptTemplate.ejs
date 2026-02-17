@@ -25,7 +25,7 @@
       .font-bold {
         font-weight: bold;
       }
-      .company-color{
+      .company-color {
         color: #1b0d6c;
       }
       .text-primary {
@@ -54,8 +54,8 @@
       .items-center {
         align-items: center;
       }
-      .m-0{
-        margin:2px;
+      .m-0 {
+        margin: 2px;
       }
       .mt-4 {
         margin-top: 0.75rem;
@@ -101,17 +101,23 @@
   </head>
   <body>
     <!-- Logo -->
-    <img src="{{logoUrl}}" class="logo" />
+    <img src="{{ logoUrl }}" class="logo" />
 
     <!-- Company Info -->
-    <div class="text-center text-sm company-color" style="margin-bottom: 0.5rem;">
+    <div
+      class="text-center text-sm company-color"
+      style="margin-bottom: 0.5rem"
+    >
       <p class="m-0">
-        {{companyName}}, <span class="text-primary">GSTIN/UIN:</span> {{companyGstin}}
+        {{ companyName }}, <span class="text-primary">GSTIN/UIN:</span>
+        {{ companyGstin }}
       </p>
-      <p class="m-0"><span class="text-primary">Address:</span> {{companyAddress}}</p>
       <p class="m-0">
-        <span class="text-primary">Contact:</span> {{companyContact}},
-        <span class="text-primary">E-mail:</span> {{companyEmail}}
+        <span class="text-primary">Address:</span> {{ companyAddress }}
+      </p>
+      <p class="m-0">
+        <span class="text-primary">Contact:</span> {{ companyContact }},
+        <span class="text-primary">E-mail:</span> {{ companyEmail }}
       </p>
     </div>
 
@@ -122,15 +128,36 @@
 
     <!-- Transaction + Seller Info -->
     <div class="flex justify-between mt-4">
-      <div style="width: 30%;">
-        <p class="m-0"><strong>Transaction ID:</strong> {{uniqueCode}}</p>
-        <p class="m-0"><strong>Date:</strong> {{formattedDate}}</p>
+      <div style="width: 30%">
+        <p class="m-0"><strong>Transaction ID:</strong> {{ uniqueCode }}</p>
+        <p class="m-0"><strong>Date:</strong> {{ formattedDate }}</p>
       </div>
       <div class="border-box">
-        <p class="m-0"><strong>Purchased From:</strong> {{name}}</p>
-        <p class="m-0">Contact: {{maskedPhoneNumber}}</p>
-        <p class="m-0">Email: {{maskedEmail}}</p>
-        <p class="m-0">Aadhar No.: {{aadharNumber}}</p>
+        <p class="m-0"><strong>Purchased From:</strong> {{ name }}</p>
+        <p class="m-0">Contact: {{ maskedPhoneNumber }}</p>
+        <p class="m-0">Email: {{ maskedEmail }}</p>
+        <div
+          style="
+            margin: 2px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px;
+          "
+        >
+          <span>Aadhar No.: {{ aadharNumber }}</span>
+          <span
+            style="
+              display: inline-flex;
+              align-items: center;
+              color: #16a34a;
+              font-weight: bold;
+              font-size: 12px;
+            "
+          >
+            ( Verified by aadhar OTP )
+          </span>
+        </div>
       </div>
     </div>
 
@@ -143,13 +170,13 @@
       <div class="items-start">
         <p class="font-bold">ITEM</p>
         <p class="m-0">
-          {{phoneName}}
-          {{RAMStorage}}
+          {{ phoneName }}
+          {{ RAMStorage }}
         </p>
       </div>
       <div class="items-start">
         <p class="font-bold">PRICE</p>
-        <p class="m-0">₹ {{price}}/-</p>
+        <p class="m-0">₹ {{ price }}/-</p>
       </div>
     </div>
 
@@ -160,8 +187,8 @@
         <p class="m-0">Serial Number(if Laptop):</p>
       </div>
       <div class="items-start">
-        <p class="m-0">{{imeiNumber}}</p>
-        <p class="m-0">{{LaptopimeiNumber}}</p>
+        <p class="m-0">{{ imeiNumber }}</p>
+        <p class="m-0">{{ LaptopimeiNumber }}</p>
       </div>
     </div>
 
@@ -170,9 +197,12 @@
     <!-- Store Info -->
     <div class="text-center mt-4 border-b-2 border-dashed border-black py-4">
       <p class="text-xl font-bold mb-2">Via Retail Store Partner:</p>
-      <p class="m-0">{{storeName}}</p>
-      <p class="uppercase">{{address}}</p>
-      <p class="text-sm">This is a Computer Generated Purchase Receipt and does not require signature or stamp</p>
+      <p class="m-0">{{ storeName }}</p>
+      <p class="uppercase">{{ address }}</p>
+      <p class="text-sm">
+        This is a Computer Generated Purchase Receipt and does not require
+        signature or stamp
+      </p>
     </div>
     <hr class="mt-4" />
     <!-- Indemnity Bond -->
@@ -180,11 +210,14 @@
       <p class="text-xl font-bold my-4">IDEMNITY BOND</p>
       <p class="m-0">
         This bond of idemnity is made and executed by:
-        <span class="font-bold underline">{{name}}</span> Herein after referred to as "Seller" who has come in Retail store of
-        <span class="font-bold underline">{{storeName}}</span> to sell his/her old Gadget, to the
-        {{websiteShortName}} Network herein after referred to as "Purchaser" which expression shall mean and include its
-        representative, executors, nominee, partners, affiliates and assigns on day of
-        <span class="font-bold">{{formattedDate}}</span>
+        <span class="font-bold underline">{{ name }}</span> Herein after
+        referred to as "Seller" who has come in Retail store of
+        <span class="font-bold underline">{{ storeName }}</span> to sell his/her
+        old Gadget, to the {{ websiteShortName }} Network herein after referred
+        to as "Purchaser" which expression shall mean and include its
+        representative, executors, nominee, partners, affiliates and assigns on
+        day of
+        <span class="font-bold">{{ formattedDate }}</span>
       </p>
     </div>
 
@@ -200,11 +233,33 @@
           <p class="text-xl font-bold my-4">TERMS & CONDITIONS</p>
         </div>
         <ol class="text-left pl-5">
-          <li>The Customer/Seller confirms that they are the rightful owner of the Gadget/Device and assume full responsibility for any liabilities related to its ownership.</li>
-          <li>The Customer/Seller affirms that all personal data has been completely removed from the device, and the Company shall not be held responsible for any data-related issues.</li>
-          <li>The Customer/Seller agrees to indemnify and hold the Company harmless against any third-party claims arising from the ownership, data, condition of the device, or any criminal matters related to the device.</li>
-          <li>Payment will be processed as per the agreed terms. Any discrepancies must be reported within 2 hours of the transaction, Return and refund requests, if applicable, must comply with the Company’s return policy.</li>
-          <li>Any disputes or disagreements between the Customer/Seller and Purchaser shall be exclusively resolved under the jurisdiction of the courts located in {{courtJurisdiction}} only.</li>
+          <li>
+            The Customer/Seller confirms that they are the rightful owner of the
+            Gadget/Device and assume full responsibility for any liabilities
+            related to its ownership.
+          </li>
+          <li>
+            The Customer/Seller affirms that all personal data has been
+            completely removed from the device, and the Company shall not be
+            held responsible for any data-related issues.
+          </li>
+          <li>
+            The Customer/Seller agrees to indemnify and hold the Company
+            harmless against any third-party claims arising from the ownership,
+            data, condition of the device, or any criminal matters related to
+            the device.
+          </li>
+          <li>
+            Payment will be processed as per the agreed terms. Any discrepancies
+            must be reported within 2 hours of the transaction, Return and
+            refund requests, if applicable, must comply with the Company’s
+            return policy.
+          </li>
+          <li>
+            Any disputes or disagreements between the Customer/Seller and
+            Purchaser shall be exclusively resolved under the jurisdiction of
+            the courts located in {{ courtJurisdiction }} only.
+          </li>
         </ol>
         <div class="text-right mt-16">
           <p class="font-bold">SIGNATURES</p>

@@ -1,43 +1,47 @@
-import express from 'express';
-import quoteLogController from '../controller/quoteLogController.js';
-import verifyToken from '../middlewares/authJwt.js';
+import express from 'express'
+import quoteLogController from '../controller/quoteLogController.js'
+import verifyToken from '../middlewares/authJwt.js'
+import companyScopingMiddleware from '../middlewares/companyScopingMiddleware.js'
 
-const router = express.Router();
+const quoteLogRoute = express.Router()
 
-router.post(
+quoteLogRoute.post(
   '/log-quote-attempt',
   (req, res, next) => {
-    next();
+    next()
   },
   verifyToken,
   quoteLogController.logQuoteAttempt
-);
+)
 
-router.get(
+quoteLogRoute.get(
   '/dashboard',
   (req, res, next) => {
-    next();
+    next()
   },
   verifyToken,
+  companyScopingMiddleware,
   quoteLogController.getQuoteTrackingData
-);
+)
 
-router.get(
+quoteLogRoute.get(
   '/activity-log/:targetUserId',
   (req, res, next) => {
-    next();
+    next()
   },
   verifyToken,
+  companyScopingMiddleware,
   quoteLogController.getUserActivityLog
-);
+)
 
-router.get(
+quoteLogRoute.get(
   '/dashboard/download',
   (req, res, next) => {
-    next();
+    next()
   },
   verifyToken,
+  companyScopingMiddleware,
   quoteLogController.downloadQuoteTrackingData
-);
+)
 
-export default router;
+export default quoteLogRoute

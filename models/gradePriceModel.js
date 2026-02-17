@@ -1,12 +1,12 @@
-import mongoose from "mongoose";
-const { Schema } = mongoose;
+import mongoose from 'mongoose'
+const { Schema } = mongoose
 
 const gradePriceSchema = new Schema(
   {
     modelId: {
       type: Schema.Types.ObjectId,
       required: true,
-      ref: "models"
+      ref: 'models',
     },
     grades: {
       A_PLUS: Number,
@@ -20,6 +20,7 @@ const gradePriceSchema = new Schema(
       D: Number,
       D_MINUS: Number,
       E: Number,
+      H: Number,
     },
     storage: {
       type: String,
@@ -30,16 +31,16 @@ const gradePriceSchema = new Schema(
     },
     price: {
       type: Number,
-      default: 0
+      default: 0,
     },
     partnerId: {
       type: mongoose.Types.ObjectId,
-      ref: "liquidators"
-    }
+      ref: 'liquidators',
+    },
   },
-  { timestamps: true }
-);
+  { timestamps: true },
+)
 
-const gradePriceModel = mongoose.model("gradeprice", gradePriceSchema);
+const gradePriceModel = mongoose.model('gradeprice', gradePriceSchema)
 
-export default gradePriceModel;
+export default gradePriceModel

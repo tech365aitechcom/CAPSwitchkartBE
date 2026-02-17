@@ -1,19 +1,45 @@
-import express from "express";
-import pickupDevicesController from "../controller/pickupDevicesController.js";
-import verifyToken from "../middlewares/authJwt.js";
+import express from 'express'
+import pickupDevicesController from '../controller/pickupDevicesController.js'
+import verifyToken from '../middlewares/authJwt.js'
+import companyScopingMiddleware from '../middlewares/companyScopingMiddleware.js'
+import multer from 'multer'
 
-const pickupDevicesRoute = express.Router();
+const upload = multer({ storage: multer.memoryStorage() })
+
+const pickupDevicesRoute = express.Router()
 
 pickupDevicesRoute
-  .get("/all", verifyToken, pickupDevicesController.allLots) //get all the lots from deviceLots schema except "Pickup Confirmed" lots
-  .get("/search", verifyToken, pickupDevicesController.searchLots) //
-  .get("/history", verifyToken, pickupDevicesController.lotsHistory) //get all lots with status: "Pickup Confirmed"
-  .post("/update", verifyToken, pickupDevicesController.updateStatus) //update status of lots, take input lotId[] and new status
-  .get("/devices/:rid", verifyToken, pickupDevicesController.devicesList)
   .get(
-    "/technicianReport",
+    '/all',
     verifyToken,
+    companyScopingMiddleware,
+    pickupDevicesController.allLots
+  )
+  .get(
+    '/search',
+    verifyToken,
+    companyScopingMiddleware,
+    pickupDevicesController.searchLots
+  )
+  .get(
+    '/history',
+    verifyToken,
+    companyScopingMiddleware,
+    pickupDevicesController.lotsHistory
+  )
+  .post('/update', verifyToken, pickupDevicesController.updateStatus)
+  .get('/devices/:rid', verifyToken, pickupDevicesController.devicesList)
+  .get(
+    '/technicianReport',
+    verifyToken,
+    companyScopingMiddleware,
     pickupDevicesController.technicianReport
-  );
+  )
+  .put(
+    '/updatePaymentReceipt/:id',
+    verifyToken,
+    upload.single('paymentReceipt'),
+    pickupDevicesController.updatePaymentReceiptAndRemarks
+  )
 
-export default pickupDevicesRoute;
+export default pickupDevicesRoute

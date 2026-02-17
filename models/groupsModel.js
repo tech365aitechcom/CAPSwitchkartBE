@@ -1,6 +1,7 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose'
+const { Schema } = mongoose
 
-const groupsSchema = new mongoose.Schema(
+const groupsSchema = new Schema(
   {
     name: {
       type: String,
@@ -9,35 +10,14 @@ const groupsSchema = new mongoose.Schema(
     },
     codes: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Code", // Reference to condition codes collection
+        type: Schema.Types.ObjectId,
+        ref: 'codes',
       },
     ],
-    categories: [
-      {
-        type: String, // e.g., ["CTG1", "CTG2", "CTG6"]
-      },
-    ],
-    // Optional: Add priority/order field if groups need specific ordering
-    order: {
-      type: Number,
-      default: 0,
-    },
-    // Optional: Add active/inactive status
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
   },
-  {
-    timestamps: true,
-  },
-);
+  { timestamps: true },
+)
 
-// Index for faster queries
-groupsSchema.index({ name: 1 });
-groupsSchema.index({ categories: 1 });
+const groupsModel = mongoose.model('groups', groupsSchema)
 
-const groups = mongoose.model("groups", groupsSchema);
-
-export default groups;
+export default groupsModel

@@ -152,6 +152,7 @@ const SelectedBrandModels = async (req, res) => {
         $match: {
           brandId: new mongoose.Types.ObjectId(brandId),
           type: deviceType,
+          status: "Active",
           name: { $regex: search, $options: "i" },
           series: { $regex: series },
         },

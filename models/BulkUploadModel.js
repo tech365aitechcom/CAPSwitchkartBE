@@ -1,6 +1,6 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose'
 
-const { Schema } = mongoose;
+const { Schema } = mongoose
 
 const BulkUserUploadSchema = new Schema(
   {
@@ -10,7 +10,7 @@ const BulkUserUploadSchema = new Schema(
     },
     uploadedBy: {
       type: mongoose.Types.ObjectId,
-      ref: "users",
+      ref: 'users',
       required: true,
     },
     totalRecords: {
@@ -27,23 +27,22 @@ const BulkUserUploadSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ["In Progress", "Completed", "Failed"],
-      default: "In Progress",
+      enum: ['In Progress', 'Completed', 'Failed'],
+      default: 'In Progress',
     },
     category: {
-        type: String,
-        default: "USER"
-    }
+      type: String,
+      default: 'USER',
+    },
   },
-  { timestamps: { createdAt: 'createdAt' } } 
-);
+  { timestamps: { createdAt: 'createdAt' } }
+)
 
-``
 const BulkUserUploadLogSchema = new Schema(
   {
     uploadId: {
       type: mongoose.Types.ObjectId,
-      ref: "bulk_user_uploads", 
+      ref: 'bulk_user_uploads',
       required: true,
     },
     rowNumber: {
@@ -51,12 +50,12 @@ const BulkUserUploadLogSchema = new Schema(
       required: true,
     },
     rowData: {
-      type: Schema.Types.Mixed, 
-      required: true
+      type: Schema.Types.Mixed,
+      required: true,
     },
     status: {
       type: String,
-      enum: ["Success", "Fail"],
+      enum: ['Success', 'Fail'],
       required: true,
     },
     errorMessage: {
@@ -65,7 +64,14 @@ const BulkUserUploadLogSchema = new Schema(
     },
   },
   { timestamps: true }
-);
+)
 
-export const BulkUserUpload = mongoose.model("bulk_user_uploads", BulkUserUploadSchema);
-export const BulkUserUploadLog = mongoose.model("bulk_user_upload_logs", BulkUserUploadLogSchema);
+export const BulkUserUpload = mongoose.model(
+  'bulk_user_uploads',
+  BulkUserUploadSchema
+)
+
+export const BulkUserUploadLog = mongoose.model(
+  'bulk_user_upload_logs',
+  BulkUserUploadLogSchema
+)

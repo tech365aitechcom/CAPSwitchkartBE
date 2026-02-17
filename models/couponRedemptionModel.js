@@ -1,22 +1,22 @@
-import mongoose from "mongoose";
-const { Schema } = mongoose;
+import mongoose from 'mongoose'
+const { Schema } = mongoose
 
 const couponRedemptionSchema = new Schema(
   {
     couponId: {
       type: Schema.Types.ObjectId,
-      ref: "coupon",
+      ref: 'coupon',
       required: true,
     },
     leadId: {
       type: Schema.Types.ObjectId,
-      ref: "leads",
+      ref: 'leads',
       required: true,
       unique: true,
     },
     userId: {
       type: Schema.Types.ObjectId,
-      ref: "users",
+      ref: 'users',
       required: true,
     },
     discountAmount: {
@@ -28,11 +28,11 @@ const couponRedemptionSchema = new Schema(
       required: false,
     },
   },
-  { timestamps: { createdAt: "redeemedAt", updatedAt: false } }
-);
+  { timestamps: { createdAt: 'redeemedAt', updatedAt: false } }
+)
 
 const CouponRedemptionModel = mongoose.model(
-  "couponRedemption",
+  'couponRedemption',
   couponRedemptionSchema
-);
-export default CouponRedemptionModel;
+)
+export default CouponRedemptionModel

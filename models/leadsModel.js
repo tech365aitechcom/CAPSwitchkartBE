@@ -1,12 +1,22 @@
-import mongoose from "mongoose";
-const { Schema } = mongoose;
+import mongoose from 'mongoose'
+const { Schema } = mongoose
 
 const leadsSchema = new Schema(
   {
     userId: {
       type: Schema.Types.ObjectId,
       required: true,
-      ref: "users",
+      ref: 'users',
+    },
+    storeId: {
+      type: Schema.Types.ObjectId,
+      ref: 'store',
+      index: true
+    },
+    companyId: {
+      type: Schema.Types.ObjectId,
+      ref: 'company',
+      index: true
     },
     QNA: {
       type: Array,
@@ -27,7 +37,7 @@ const leadsSchema = new Schema(
     modelId: {
       type: Schema.Types.ObjectId,
       required: true,
-      ref: "models",
+      ref: 'models',
     },
     price: {
       type: Number,
@@ -46,19 +56,23 @@ const leadsSchema = new Schema(
     },
     name: {
       type: String,
-      default: "",
+      default: '',
     },
     storage: {
       type: String,
-      default: "",
+      default: '',
     },
     documentId: {
       type: Schema.Types.ObjectId,
-      ref: "documents",
+      ref: 'documents',
     },
     gradeId: {
       type: Schema.ObjectId,
-      ref: "condtioncodes",
+      ref: 'condtioncodes',
+    },
+    deviceReport: {
+      type: Object,
+      default: {}
     },
     actualPrice: {
       type: Number,
@@ -66,7 +80,7 @@ const leadsSchema = new Schema(
     },
     reciept: {
       type: String,
-      default: "",
+      default: '',
     },
     ram: {
       type: String,
@@ -75,19 +89,31 @@ const leadsSchema = new Schema(
     uniqueCode: {
       type: String,
       required: true,
-      default: "",
+      default: '',
+      unique: true,
+      sparse: true,
     },
     emailId: {
       type: String,
     },
     status: {
       type: String,
-      default: "Available For Pickup",
+      default: 'Pending in QC',
     },
+    tncVersion: {
+      type: String,
+      default: '',
+    },
+    history: [{
+      action: String,
+      performedBy: { type: Schema.Types.ObjectId, ref: 'users' },
+      timestamp: { type: Date, default: Date.now },
+      changes: Object
+    }]
   },
   { timestamps: true }
-);
+)
 
-const leadsModel = mongoose.model("leads", leadsSchema);
+const leadsModel = mongoose.model('leads', leadsSchema)
 
-export default leadsModel;
+export default leadsModel

@@ -37,6 +37,12 @@ const devicesLotSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    paymentReceipt: {
+      type: String,
+    },
+    remarks: {
+      type: String,
+    },
   },
   { timestamps: true }
 );

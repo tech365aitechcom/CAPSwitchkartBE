@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Purchase Receipt</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      html {
+        width: 210mm;
+        height: 297mm;
+      }
+      body {
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        padding: 20px;
+        width: 210mm;
+        margin: 0 auto;
+      }
+      .container {
+        padding: 40px 60px;
+        background-color: white;
+        border: 2px solid #cccccc;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      .logo-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: white;
+        margin-bottom: 30px;
+      }
+      .logo {
+        width: 280px;
+        height: 90px;
+      }
+      .company-info {
+        text-align: center;
+        margin-bottom: 20px;
+        line-height: 1.6;
+      }
+      .company-info p {
+        font-size: 14px;
+        color: #1b0d6c;
+        margin: 3px 0;
+      }
+      .text-primary {
+        color: #ec2752;
+      }
+      .title {
+        text-align: center;
+        font-weight: bold;
+        font-size: 22px;
+        margin: 25px 0;
+        letter-spacing: 1px;
+      }
+      .transaction-section {
+        display: table;
+        width: 100%;
+        margin-top: 20px;
+        margin-bottom: 20px;
+      }
+      .transaction-info {
+        display: table-cell;
+        width: 35%;
+        vertical-align: top;
+        padding-right: 20px;
+      }
+      .transaction-info p {
+        margin: 5px 0;
+        font-size: 14px;
+      }
+      .customer-info {
+        display: table-cell;
+        width: 65%;
+        padding: 15px 20px;
+        border: 2px solid #000;
+        vertical-align: top;
+      }
+      .customer-info p {
+        margin: 5px 0;
+        font-size: 14px;
+      }
+      .item-section {
+        display: table;
+        width: 100%;
+        margin-top: 15px;
+        margin-bottom: 10px;
+      }
+      .item-column {
+        display: table-cell;
+        vertical-align: top;
+        padding-right: 30px;
+      }
+      .item-column p {
+        margin: 5px 0;
+        font-size: 14px;
+      }
+      .item-column:first-child {
+        width: 10%;
+      }
+      .item-column:nth-child(2) {
+        width: 60%;
+      }
+      .item-column:last-child {
+        width: 30%;
+      }
+      .font-bold {
+        font-weight: bold;
+      }
+      .mt-2 {
+        margin-top: 12px;
+      }
+      .mt-4 {
+        margin-top: 15px;
+      }
+      .mt-8 {
+        margin-top: 30px;
+      }
+      .mt-10 {
+        margin-top: 40px;
+      }
+      .mt-16 {
+        margin-top: 80px;
+      }
+      .mt-32 {
+        margin-top: 150px;
+      }
+      .mb-2 {
+        margin-bottom: 10px;
+      }
+      .my-4 {
+        margin-top: 20px;
+        margin-bottom: 20px;
+      }
+      .py-4 {
+        padding-top: 20px;
+        padding-bottom: 20px;
+      }
+      .hr-solid {
+        border: none;
+        border-top: 1px solid #000;
+        margin: 30px 0 10px 0;
+      }
+      .store-section {
+        text-align: center;
+        border-bottom: 2px dashed #000;
+        padding: 0 0 10px 0;
+        margin-bottom: 20px;
+      }
+      .store-section p {
+        margin: 5px 0;
+        line-height: 1.6;
+      }
+      .store-title {
+        font-size: 22px;
+        font-weight: bold;
+      }
+      .uppercase {
+        text-transform: uppercase;
+      }
+      .indemnity-section {
+        text-align: center;
+        margin-top: 20px;
+        margin-bottom: 30px;
+      }
+      .indemnity-title {
+        font-size: 22px;
+        font-weight: bold;
+        margin: 20px 0;
+        letter-spacing: 1px;
+      }
+      .indemnity-text {
+        text-align: justify;
+        line-height: 1.6;
+        margin: 10px 0;
+        font-size: 14px;
+      }
+      .underline {
+        text-decoration: underline;
+      }
+      .page-break {
+        page-break-before: always;
+        display: block;
+        width: 100%;
+      }
+      .terms-section {
+        margin-top: 100px;
+      }
+      .terms-title {
+        text-align: center;
+        font-size: 22px;
+        font-weight: bold;
+        margin-bottom: 25px;
+        letter-spacing: 1px;
+      }
+      .terms-content {
+        text-align: justify;
+        line-height: 1.8;
+        font-size: 14px;
+      }
+      .terms-item {
+        margin-bottom: 15px;
+      }
+      .signature-section {
+        width: 100%;
+        text-align: right;
+        margin-top: 60px;
+      }
+      .text-right {
+        text-align: right;
+      }
+      .text-center {
+        text-align: center;
+      }
+      .text-sm {
+        font-size: 14px;
+      }
+      .text-xl {
+        font-size: 20px;
+      }
+      .imei-section {
+        margin: 20px 0;
+      }
+      .imei-section p {
+        font-size: 14px;
+        margin: 8px 0;
+      }
+      .scheme-section {
+        margin-top: 20px;
+      }
+      .scheme-section p {
+        font-size: 14px;
+        margin: 8px 0;
+      }
+      .seller-sign {
+        font-weight: bold;
+        margin-top: 60px;
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="logo-container">
+        <img src="{{logoUrl}}" alt="App logo" class="logo" />
+      </div>
+
+      <div class="company-info">
+        <p>
+          {{companyName}} ,
+          <span class="text-primary"> GSTIN/UIN:</span>
+          {{companyGstin}}
+        </p>
+        <p>
+          <span class="text-primary"> Address:</span>
+          {{companyAddress}}
+        </p>
+        <p>
+          <span class="text-primary"> Contact:</span>
+          {{companyContact}} ,
+          <span class="text-primary"> E-mail:</span>
+          {{companyEmail}}
+        </p>
+      </div>
+
+      <div class="title">PURCHASE RECEIPT</div>
+
+      <div class="transaction-section">
+        <div class="transaction-info">
+          <p><span class="font-bold"> Transaction ID:</span> {{uniqueCode}}</p>
+          <p><span class="font-bold"> Date:</span> {{formattedDate}}</p>
+        </div>
+        <div class="customer-info">
+          <p>
+            <span class="font-bold"> Purchased From: {{name}}</span>
+          </p>
+          <p></p>
+          <span> Contact: {{maskedPhoneNumber}}</span>
+          <p>
+            <span> Mail: {{maskedEmail}}</span>
+          </p>
+          <div
+            style="display: flex; align-items: center; gap: 4px; margin: 5px 0"
+          >
+            <span>Aadhar No.: {{aadharNumber}}</span>
+            <span
+              style="
+                display: inline-flex;
+                align-items: center;
+                font-size: 12px;
+                color: #16a34a;
+                font-weight: bold;
+              "
+            >
+              ( Verified by aadhar OTP )
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="item-section">
+        <div class="item-column">
+          <p class="font-bold">S.No.</p>
+          <p>1</p>
+        </div>
+        <div class="item-column">
+          <p class="font-bold">ITEM</p>
+          <p>{{phoneName}}{{RAMStorage}}</p>
+        </div>
+        <div class="item-column">
+          <p class="font-bold">PRICE</p>
+          <p>₹ {{price}}/-</p>
+        </div>
+      </div>
+
+      <div class="imei-section">
+        <p>
+          IMEI No.:
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{{imeiNumber}}
+        </p>
+        <p style="margin-top: 10px">Serial Number(if Laptop):</p>
+      </div>
+
+      <hr class="hr-solid" />
+
+      <div class="store-section">
+        <p class="store-title">Via Retail Store Partner:</p>
+        <p>{{storeName}}</p>
+        <p class="uppercase">{{address}}</p>
+        <p class="text-sm">
+          This is a Computer Generated Purchase Receipt and does not require
+          signature or stamp
+        </p>
+      </div>
+
+      <div class="indemnity-section">
+        <p class="indemnity-title">IDEMNITY BOND</p>
+        <p class="indemnity-text">
+          This bond of idemnity is made and executed by :
+          <span class="font-bold underline">{{name}}</span> Herein after
+          referred to as "Seller" who has come in Retail store of
+          <span class="font-bold underline">{{storeName}}</span> to sell his/her
+          old Gadget, to the {{websiteShortName}} Network herein after referred
+          to as "Purchaser" which expression shall mean and include its
+          representative, executors, nominee, partners, affiliates and assigns
+          on day of <span class="font-bold">{{formattedDate}}</span>
+        </p>
+      </div>
+
+      <div class="scheme-section">
+        <p>Scheme Title: Buyback</p>
+      </div>
+
+      <div class="signature-section">
+        <p class="font-bold">SIGNATURES</p>
+        <div
+          style="
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 8px;
+            min-height: 80px;
+          "
+        >
+          <img
+            src="{{signatureBase64}}"
+            alt="Seller Signature"
+            style="height: 60px; width: auto; object-fit: contain; display: {{signatureDisplay}}; margin-left: auto;"
+          />
+        </div>
+
+        <p className="mt-2 text-xl">{{name}}</p>
+        <p className="font-bold mt-2">Seller Name and Sign</p>
+      </div>
+
+      <div class="page-break">
+        <div class="terms-section">
+          <div class="terms-title">TERMS & CONDITIONS</div>
+
+          <!-- updated terms and conditions-->
+          <div class="terms-content">{{termsAndConditions}}</div>
+
+          <div class="signature-section">
+            <p class="font-bold">SIGNATURES</p>
+            <div
+              style="
+                display: flex;
+                justify-content: flex-end;
+                margin-top: 16px;
+                min-height: 80px;
+              "
+            >
+              <img
+                src="{{signatureBase64}}"
+                alt="Seller Signature"
+                style="height: 60px; width: auto; object-fit: contain; display: {{signatureDisplay}}; margin-left: auto;"
+              />
+            </div>
+            <p class="mt-2 text-xl">{{name}}</p>
+            <p class="font-bold mt-2">(SELLER)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

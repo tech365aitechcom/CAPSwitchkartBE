@@ -19,6 +19,7 @@ const uploads = multer({ storage: storage });
 const ProfileCrudRoute = express.Router();
 
 ProfileCrudRoute
+  .get("/details", verifyToken, profileContrDColler.GetUserDetails)
   .post("/user/edit", verifyToken, profileContrDColler.Edituser)
   .post("/user/upload/Profile_image",verifyToken,upload.fields([{ name: "Profileimage" }]),profileContrDColler.Uploadimage)
   .delete("/user/delete/Profile_image", verifyToken, profileContrDColler.Deleteimage);

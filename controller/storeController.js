@@ -1,443 +1,722 @@
-import storeModel from "../models/storeModel.js";
-import axios from "axios";
-import xlsx from "xlsx";
-import utils from "../utils/required.js";
-import UsersModel from "../models/UsersModel.js";
-import devicesLotModel from "../models/devicesLotModel.js";
-import leadModel from "../models/leadsModel.js";
-import timeRangeCal from "../utils/timeRangeCal.js";
-import AWS from "aws-sdk";
-const ISE = "Internal Server Error";
+import storeModel from '../models/storeModel.js'
+import axios from 'axios'
+import xlsx from 'xlsx'
+import utils from '../utils/required.js'
+import UsersModel from '../models/UsersModel.js'
+import devicesLotModel from '../models/devicesLotModel.js'
+import leadModel from '../models/leadsModel.js'
+import timeRangeCal from '../utils/timeRangeCal.js'
+import AWS from 'aws-sdk'
+import { ROLES } from '../middlewares/rbac.js'
+import mongoose from 'mongoose'
+import { parseFile } from '../utils/fileParsingUtils.js'
 
-const create = async (req, res) => {
-  const userId = req.userId;
-  req.body.createdBy = userId;
+const MESSAGES = {
+  INTERNAL_SERVER: 'Internal Server Error',
+  FORBIDDEN: 'Forbidden',
+  FORBIDDEN_USER: 'Forbidden: User not found.',
+  NO_FILE: 'No file URL provided',
+  INVALID_FILE: 'Empty or invalid file format',
+  INVALID_STORE: 'Invalid store data format',
+}
 
-  try {
-    const { error } = utils.storeValidation(req.body);
-    if (error) {
-      return res.status(400).send({ message: error.details[0].message });
-    }
-    const lastDoc = await storeModel
-      .findOne({ uniqueId: { $ne: "" } })
-      .sort({ createdAt: -1 });
-    let uniqueId = "STOREG100";
-    if (lastDoc) {
-      const numbersArray = lastDoc?.uniqueId?.match(/\d+/g);
-      const code = numbersArray ? numbersArray.map(Number) : [];
-      uniqueId = `STOREG${Number(code) + 1}`;
-    }
-    const result = await storeModel({
-      storeName: req.body.storeName,
-      uniqueId: uniqueId,
-      email: req.body.email,
-      contactNumber: req.body.contactNumber,
-      region: req.body.region,
-      address: req.body.address,
-      createdBy: userId,
-    }).save();
-    return res.status(200).json({ result });
-  } catch (error) {
-    return res.status(500).json({ message: error.message, status: 500 });
-  }
-};
+const STATUS = {
+  PICKUP_CONFIRMED: 'Pickup Confirmed',
+  AVAILABLE_FOR_PICKUP: 'Available For Pickup',
+  PENDING: 'Pending',
+  COMPLETED: 'Completed',
+  IN_PROGRESS: 'In Progress',
+}
 
-const update = async (req, res) => {
-  const userId = req.userId;
-  req.body.updatedBy = userId;
-  delete req.body.createdBy;
+const FIELD_NAMES = {
+  BONUS_PRICE: '$bonusPrice',
+}
 
-  try {
-    const result = await storeModel.findByIdAndUpdate(
-      { _id: req.body._id || req.body.id },
-      req.body,
-      { new: true }
-    );
-    return res.status(200).json({ result });
-  } catch (error) {
-    return res.status(500).json({ message: error.message, status: 500 });
-  }
-};
+const ROLE_NAMES = {
+  ADMIN_MANAGER: 'Admin Manager',
+  MANAGER: 'Manager',
+  TECHNICIAN: 'Technician',
+}
 
-const deleteById = async (req, res) => {
-  try {
-    const result = await storeModel.findByIdAndDelete({
-      _id: req.query._id || req.query.id,
-    });
-    return res.status(200).json({ result });
-  } catch (error) {
-    return res.status(500).json({ message: error.message, status: 500 });
-  }
-};
-
-const findById = async (req, res) => {
-  try {
-    const storeData = await storeModel.findById({
-      _id: req.query._id || req.query.id,
-    });
-    return res.status(200).json({ result: storeData });
-  } catch (error) {
-    return res.status(500).json({ message: ISE, status: 500 });
-  }
-};
-
-const findAll = async (req, res) => {
-  const userId = req.userId;
-  try {
-    const user = await UsersModel.findById(userId).select("role storeId");
-    if (!user) {
-      return res.status(403).json({ message: "Forbidden: User not found." });
-    }
-
-    if (user.role !== "Super Admin") {
-      if (!user.storeId) {
-        return res.status(200).json({ result: [], totalRecords: 0 });
-      }
-      const userStore = await storeModel.findById(user.storeId);
-      return res.status(200).json({
-        result: userStore ? [userStore] : [],
-        totalRecords: userStore ? 1 : 0,
-      });
-    }
-
-    const query = {};
-    const search = req.query.search || "";
-    const limit = parseInt(req.query.limit) || 9999;
-    const page = parseInt(req.query.page) || 0;
-
-    if (search) {
-      query["$or"] = [
-        { storeName: { $regex: search, $options: "i" } },
-        { region: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-        { uniqueId: { $regex: search, $options: "i" } },
-      ];
-    }
-    const allstore = await storeModel
-      .find(query)
-      .sort({ updatedAt: -1 })
-      .limit(limit)
-      .skip(limit * page);
-
-    const totalRecords = await storeModel.countDocuments(query);
-    return res.status(200).json({ result: allstore, totalRecords });
-  } catch (error) {
-    return res.status(500).json({ message: ISE, status: 500 });
-  }
-};
+const ROLES_WITH_ASSIGNED_STORES = [
+  ROLE_NAMES.ADMIN_MANAGER,
+  ROLE_NAMES.MANAGER,
+  ROLE_NAMES.TECHNICIAN,
+]
 
 const s3Bucket = new AWS.S3({
   region: process.env.S3_REGION,
   accessKeyId: process.env.S3_ACCESS_KEY,
   secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
-});
+})
 
-const parseS3Url = (url) => {
-  const match = url.match(/^https:\/\/(.+)\.s3\.(.+)\.amazonaws\.com\/(.+)$/);
-  if (!match) {
-    throw new Error("Invalid S3 URL format");
+// ========== CRUD FUNCTIONS ==========
+const create = async (req, res) => {
+  try {
+    const userId = req.userId
+    req.body.createdBy = userId
+
+    // Validate required companyId
+    if (!req.body.companyId) {
+      return res.status(400).json({ message: 'companyId is required' })
+    }
+
+    // Company scoping check
+    if (
+      req.userRole !== ROLES.SUPER_ADMIN &&
+      req.body.companyId.toString() !== req.userCompanyId.toString()
+    ) {
+      return res
+        .status(403)
+        .json({ message: 'Cannot create store for another company' })
+    }
+
+    const { error } = utils.storeValidation(req.body)
+    if (error) {
+      return res.status(400).send({ message: error.details[0].message })
+    }
+
+    const lastDoc = await storeModel
+      .findOne({ uniqueId: { $ne: '' } })
+      .sort({ createdAt: -1 })
+    let uniqueId = 'STOREG100'
+
+    if (lastDoc) {
+      const numbersArray = lastDoc?.uniqueId?.match(/\d+/g)
+      const code = numbersArray ? numbersArray.map(Number) : []
+      uniqueId = `STOREG${Number(code) + 1}`
+    }
+
+    const result = await storeModel({
+      ...req.body,
+      uniqueId,
+      createdBy: userId,
+    }).save()
+
+    return res.status(200).json({ result })
+  } catch (err) {
+    return res.status(500).json({ message: err.message, status: 500 })
   }
-  const [, bucket, key] = match;
-  return { bucket, key: decodeURIComponent(key) };
-};
+}
+
+const update = async (req, res) => {
+  try {
+    const userId = req.userId
+    req.body.updatedBy = userId
+    delete req.body.createdBy
+
+    const result = await storeModel.findByIdAndUpdate(
+      { _id: req.body._id || req.body.id },
+      req.body,
+      { new: true }
+    )
+
+    return res.status(200).json({ result })
+  } catch (err) {
+    return res.status(500).json({ message: err.message, status: 500 })
+  }
+}
+
+const deleteById = async (req, res) => {
+  try {
+    const result = await storeModel.findByIdAndDelete({
+      _id: req.query._id || req.query.id,
+    })
+    return res.status(200).json({ result })
+  } catch (err) {
+    return res.status(500).json({ message: err.message, status: 500 })
+  }
+}
+
+const findById = async (req, res) => {
+  try {
+    const storeData = await storeModel.findById({
+      _id: req.query._id || req.query.id,
+    })
+    return res.status(200).json({ result: storeData })
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ message: MESSAGES.INTERNAL_SERVER, status: 500 })
+  }
+}
+
+const findAll = async (req, res) => {
+  try {
+    const userId = req.userId
+    const user = await UsersModel.findById(userId).select(
+      'role storeId companyId assignedStores'
+    )
+    if (!user) {
+      return res.status(403).json({ message: 'EHRTEHGUTIGHHU4' })
+    }
+
+    const query = {}
+    const search = req.query.search || ''
+    const limit = parseInt(req.query.limit) || 9999
+    const page = parseInt(req.query.page) || 1
+    const skip = (page - 1) * limit
+
+    // Company scoping - users can only see stores from their company
+    if (user.role !== ROLES.SUPER_ADMIN) {
+      query.companyId = user.companyId
+    }
+
+    // Role-based store filtering
+    if (ROLES_WITH_ASSIGNED_STORES.includes(user.role)) {
+      // Managers and Technicians see only assigned stores
+      if (!user.assignedStores || user.assignedStores.length === 0) {
+        return res.status(200).json({ result: [], totalRecords: 0 })
+      }
+      query._id = { $in: user.assignedStores }
+    }
+
+    // Search functionality
+    if (search) {
+      query.storeName = { $regex: search, $options: 'i' }
+    }
+
+    // Company name filter
+    if (req.query.companyId) {
+      query.companyId = req.query.companyId
+    }
+
+    // Status filter
+    if (req.query.status) {
+      query.status = req.query.status
+    }
+
+    const stores = await storeModel
+      .find(query)
+      .populate('companyId', 'name companyCode')
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+
+    const totalRecords = await storeModel.countDocuments(query)
+
+    return res.status(200).json({
+      result: stores,
+      totalRecords,
+      currentPage: page,
+      totalPages: Math.ceil(totalRecords / limit),
+    })
+  } catch (err) {
+    console.error('Find all stores error:', err)
+    return res.status(500).json({ message: 'URTUIGRTUIGRTUGI' })
+  }
+}
+
+// ========== FILE UPLOAD HELPERS ==========
+const parseS3Url = (url) => {
+  const match = url.match(/^https:\/\/(.+)\.s3\.(.+)\.amazonaws\.com\/(.+)$/)
+  if (!match) {
+    throw new Error('Invalid S3 URL format')
+  }
+  const [, bucket, key] = match
+  return { bucket, key: decodeURIComponent(key) }
+}
 
 const fetchAndProcessFile = async (fileUrl) => {
-  try {
-    // Extract bucket and key from the S3 URL
-    const { bucket, key } = parseS3Url(fileUrl);
+  const { bucket, key } = parseS3Url(fileUrl)
+  const signedUrl = s3Bucket.getSignedUrl('getObject', {
+    Bucket: bucket,
+    Key: key,
+    Expires: 60,
+  })
+  const response = await axios.get(signedUrl, { responseType: 'arraybuffer' })
 
-    // Generate a signed URL that expires in 60 seconds
-    const signedUrl = s3Bucket.getSignedUrl("getObject", {
-      Bucket: bucket,
-      Key: key,
-      Expires: 60,
-    });
+  const workbook = xlsx.read(response.data, { type: 'buffer' })
+  const sheetNameList = workbook.SheetNames
+  return xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]], {
+    defval: '',
+  })
+}
 
-    // Fetch the file using the signed URL
-    const response = await axios.get(signedUrl, {
-      responseType: "arraybuffer",
-    });
+// Helper to validate required store fields
+const validateStoreFields = (store) => {
+  return (
+    store.storeName &&
+    store.companyCode &&
+    store.region &&
+    store.contactNumber &&
+    store.address
+  )
+}
 
-    // Load and process the Excel file
-    const workbook = xlsx.read(response.data, { type: "buffer" });
-    const sheetNameList = workbook.SheetNames;
+// Helper to get company map
+const getCompanyMap = async () => {
+  const companyModel = (await import('../models/companyModel.js')).default
+  const companies = await companyModel.find({}, 'companyCode _id')
+  return new Map(
+    companies.map((c) => [c.companyCode?.toLowerCase().trim(), c._id])
+  )
+}
 
-    return xlsx.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]], {
-      defval: "",
-    });
-  } catch (error) {
-    console.error("Error fetching or processing file:", error.message);
-    throw new Error("Failed to fetch or process file");
+// Helper to get next unique ID number
+const getNextUniqueIdNumber = async () => {
+  const lastDoc = await storeModel
+    .findOne({ uniqueId: { $ne: '' } })
+    .sort({ createdAt: -1 })
+
+  if (lastDoc) {
+    const numbersArray = lastDoc?.uniqueId?.match(/\d+/g)
+    const code = numbersArray ? numbersArray.map(Number) : []
+    return Number(code) + 1
   }
-};
+  return 100
+}
+
+// Helper to process a single store row
+const processStoreRow = async (
+  store,
+  rowNumber,
+  companyMap,
+  nextUniqueIdNumber,
+  userId
+) => {
+  // Validate required fields
+  if (!validateStoreFields(store)) {
+    return {
+      error: {
+        row: rowNumber,
+        message:
+          'Missing required fields (storeName, companyCode, region, contactNumber, address)',
+        data: store,
+      },
+    }
+  }
+
+  // Map companyCode to companyId
+  const companyId = companyMap.get(store.companyCode.toLowerCase().trim())
+  if (!companyId) {
+    return {
+      error: {
+        row: rowNumber,
+        message: `Company not found with code: ${store.companyCode}`,
+        data: store,
+      },
+    }
+  }
+
+  // Check if store already exists
+  const exists = await storeModel.findOne({
+    storeName: { $regex: `^${store.storeName.trim()}$`, $options: 'i' },
+    companyId: companyId,
+    region: store.region.trim(),
+  })
+
+  let uniqueId
+  if (exists) {
+    uniqueId = exists.uniqueId
+  } else {
+    uniqueId = `STOREG${nextUniqueIdNumber.value}`
+    nextUniqueIdNumber.value++
+  }
+
+  // Prepare store data
+  const storeData = {
+    storeName: store.storeName.trim(),
+    companyId: companyId,
+    region: store.region.trim(),
+    email: store.email?.trim() || '',
+    uniqueId: uniqueId,
+    contactNumber: store.contactNumber.toString().trim(),
+    address: store.address.trim(),
+    createdBy: userId,
+  }
+
+  if (exists) {
+    const updatedStore = await storeModel.findByIdAndUpdate(
+      exists._id,
+      { ...storeData, uniqueId: exists.uniqueId, updatedBy: userId },
+      { new: true }
+    )
+    return { updated: updatedStore }
+  } else {
+    const newStore = await storeModel.create(storeData)
+    return { inserted: newStore }
+  }
+}
 
 const uploadData = async (req, res) => {
   try {
-    const userId = req.userId;
-    const { fileUrl } = req.body; // Assume the URL is provided in the request body
+    const userId = req.userId
 
-    if (!fileUrl) {
-      return res.status(400).json({ message: "No file URL provided" });
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded.' })
     }
 
-    // Process the uploaded file using fetchAndProcessFile
-    const stores = await fetchAndProcessFile(fileUrl);
-
+    const stores = await parseFile(req.file)
     if (!stores || stores.length === 0) {
-      return res.status(400).json({ message: "Empty or invalid file format" });
+      return res
+        .status(400)
+        .json({ message: 'The uploaded file is empty or invalid.' })
     }
 
-    const updated = [];
-    const inserted = [];
+    const companyMap = await getCompanyMap()
+    const nextUniqueIdNumber = { value: await getNextUniqueIdNumber() }
 
-    for (const store of stores) {
-      if (
-        !store.storeName ||
-        !store.region ||
-        !store.email ||
-        !store.uniqueId ||
-        !store.contactNumber ||
-        !store.address
-      ) {
-        return res.status(400).json({ message: "Invalid store data format" });
-      }
-      store.createdBy = userId;
-      const exists = await storeModel.findOne({
-        storeName: { $regex: store.storeName, $options: "i" },
-        region: store.region,
-      });
+    const updated = []
+    const inserted = []
+    const errors = []
 
-      if (exists) {
-        const updatedStore = await storeModel.findByIdAndUpdate(
-          exists._id,
-          store,
-          { new: true }
-        );
-        updated.push(updatedStore);
-      } else {
-        const newStore = await storeModel.create(store);
-        inserted.push(newStore);
+    for (const [index, store] of stores.entries()) {
+      const rowNumber = index + 2
+      const result = await processStoreRow(
+        store,
+        rowNumber,
+        companyMap,
+        nextUniqueIdNumber,
+        userId
+      )
+
+      if (result.error) {
+        errors.push(result.error)
+      } else if (result.updated) {
+        updated.push(result.updated)
+      } else if (result.inserted) {
+        inserted.push(result.inserted)
       }
     }
-    return res.status(200).json({ updated, inserted });
-  } catch (error) {
-    console.error("Error processing upload:", error);
-    return res.status(500).json({ message: error.message, status: 500 });
+
+    return res.status(200).json({
+      success: true,
+      updated: updated.length,
+      inserted: inserted.length,
+      errors: errors.length,
+      updatedStores: updated,
+      insertedStores: inserted,
+      errorDetails: errors,
+    })
+  } catch (err) {
+    return res.status(500).json({ message: err.message, status: 500 })
   }
-};
+}
 
-const adminReport = async (req, res) => {
-  try {
-    // CR: Get userId from request to enforce store-level visibility for the report.
-    const userId = req.userId;
-    const user = await UsersModel.findById(userId).select("role storeId");
-    if (!user) {
-      return res.status(403).json({ message: "Forbidden: User not found." });
+// ========== ADMIN REPORT HELPERS ==========
+// Helper to build store access filter based on role
+const buildStoreAccessFilter = (user, isCompanyAdmin) => {
+  if (isCompanyAdmin) {
+    if (!user.companyId) {
+      return null
     }
-    const isSuperAdmin = user.role === "Super Admin";
-
-    const { search, fromDate, toDate } = req.query;
-
-    // This query is for the final search on the aggregated data
-    const finalMatchQuery = {};
-    if (search) {
-      finalMatchQuery["data.storeName"] = { $regex: search, $options: "i" };
-    }
-
-    // This query is for the initial data filtering
-    const initialMatchQuery = { is_selled: true };
-    if (fromDate && toDate) {
-      const { startDate, endDate } = timeRangeCal.timeRangeCal(
-        "",
-        fromDate,
-        toDate
-      );
-      initialMatchQuery["createdAt"] = {
-        $gte: startDate.toDate(),
-        $lte: endDate.toDate(),
-      };
-    }
-
-    const leadIds = await devicesLotModel.distinct("deviceList", {
-      status: "Pickup Confirmed",
-    });
-
-    // CR: Build the aggregation pipeline dynamically.
-    const pipeline = [
-      {
-        $lookup: {
-          from: "users",
-          localField: "userId",
-          foreignField: "_id",
-          as: "user",
-        },
-      },
-      {
-        $unwind: { path: "$user", preserveNullAndEmptyArrays: true },
-      },
-      {
-        $lookup: {
-          from: "stores",
-          localField: "user.storeId",
-          foreignField: "_id",
-          as: "store",
-        },
-      },
-      {
-        $unwind: "$store",
-      },
-    ];
-
-    // CR: This is the core of the security implementation.
-    // If the user is NOT a Super Admin, inject a match stage to filter by their storeId.
-    if (!isSuperAdmin) {
-      if (!user.storeId) {
-        // If a non-admin user isn't assigned to a store, return an empty report.
-        console.log(
-          `User ${userId} (Role: ${user.role}) has no store. Returning empty report.`
-        );
-        return res.status(200).json({ total: {}, result: [] });
-      }
-      // Add the stage to the pipeline to filter by the user's specific store.
-      pipeline.push({
-        $match: { "store._id": user.storeId },
-      });
-      console.log(
-        `🔒 Admin Report for User ${userId} restricted to store: ${user.storeId}`
-      );
-    } else {
-      console.log(`👑 Super Admin generating report for all stores.`);
-    }
-
-    // CR: Append the rest of the original pipeline stages.
-    pipeline.push(
-      {
-        $match: initialMatchQuery,
-      },
-      {
-        $addFields: {
-          price: "$price",
-        },
-      },
-      {
-        $group: {
-          _id: {
-            createdAt: {
-              $dateToString: { format: "%d/%m/%Y", date: "$createdAt" },
-            },
-            storeId: "$store._id",
-            storeName: "$store.storeName",
-            region: "$store.region",
-          },
-          leads: {
-            $sum: {
-              $cond: [{ $eq: ["$is_selled", true] }, 1, 0],
-            },
-          },
-          completedLeads: {
-            $sum: {
-              $cond: [{ $in: ["$_id", leadIds] }, 1, 0],
-            },
-          },
-          price: {
-            $sum: {
-              $cond: [{ $eq: ["$is_selled", true] }, "$price", 0],
-            },
-          },
-          completedPrice: {
-            $sum: {
-              $cond: [{ $in: ["$_id", leadIds] }, "$price", 0],
-            },
-          },
-        },
-      },
-      {
-        $sort: { "_id.createdAt": -1 },
-      },
-      {
-        $group: {
-          _id: "$_id.createdAt",
-          totalAvailableForPickup: { $sum: "$leads" },
-          priceOfferToCustomer: { $sum: "$price" },
-          totalPicked: { $sum: "$completedLeads" },
-          totalPickedPrice: { $sum: "$completedPrice" },
-          data: {
-            $push: {
-              storeId: "$_id.storeId",
-              storeName: "$_id.storeName",
-              region: "$_id.region",
-              availableForPickup: "$leads",
-              price: "$price",
-            },
-          },
-        },
-      },
-      {
-        $match: finalMatchQuery,
-      },
-      {
-        $project: {
-          _id: 0,
-          date: "$_id",
-          datenew: {
-            $dateFromString: {
-              dateString: "$_id", // Convert the date string back to a Date object
-              format: "%d/%m/%Y", // Specify the format of the original date string
-            },
-          },
-          totalAvailableForPickup: 1,
-          priceOfferToCustomer: 1,
-          totalPicked: 1,
-          totalPickedPrice: 1,
-          pendingForPickup: {
-            $subtract: ["$totalAvailableForPickup", "$totalPicked"],
-          },
-          pendingForPickupPrice: {
-            $subtract: ["$priceOfferToCustomer", "$totalPickedPrice"],
-          },
-          data: 1,
-        },
-      },
-      {
-        $sort: { datenew: -1 },
-      }
-    );
-
-    // Now execute the fully constructed pipeline
-    const result = await leadModel.aggregate(pipeline);
-
-    const totalAvailableForPickup = mapData(result, "totalAvailableForPickup");
-    const totalPriceOfferToCustomer = mapData(result, "priceOfferToCustomer");
-    const totalPicked = mapData(result, "totalPicked");
-    const totalPickedPrice = mapData(result, "totalPickedPrice");
-    const totalPendingForPickup = mapData(result, "pendingForPickup");
-    const totalPendingForPickupPrice = mapData(result, "pendingForPickupPrice");
-
-    const total = {
-      totalAvailableForPickup,
-      totalPriceOfferToCustomer,
-      totalPicked,
-      totalPickedPrice,
-      totalPendingForPickup,
-      totalPendingForPickupPrice,
-    };
-
-    return res.status(200).json({ total, result });
-  } catch (error) {
-    console.error("Error generating admin report:", error);
-    return res.status(500).json({ message: error.message, status: 500 });
+    return { 'store.companyId': user.companyId }
   }
-};
+
+  if (ROLES_WITH_ASSIGNED_STORES.includes(user.role)) {
+    if (!user.assignedStores || user.assignedStores.length === 0) {
+      return null
+    }
+    return { 'store._id': { $in: user.assignedStores } }
+  }
+
+  if (!user.storeId) {
+    return null
+  }
+  return { 'store._id': user.storeId }
+}
+
+// Helper to apply company and store filtering to pipeline
+const applyCompanyAndStoreFiltering = (
+  pipeline,
+  companyId,
+  isSuperAdmin,
+  user,
+  isCompanyAdmin
+) => {
+  // Filter by companyId if provided
+  if (companyId) {
+    pipeline.push({
+      $match: { 'store.companyId': new mongoose.Types.ObjectId(companyId) },
+    })
+    return true
+  }
+  // Apply role-based filtering if no companyId filter was applied
+  if (!isSuperAdmin) {
+    const storeFilter = buildStoreAccessFilter(user, isCompanyAdmin)
+    if (!storeFilter) {
+      return false
+    }
+    pipeline.push({ $match: storeFilter })
+  }
+  return true
+}
+
+const buildPipeline = (
+  user,
+  isSuperAdmin,
+  isCompanyAdmin,
+  leadIds,
+  initialMatchQuery,
+  finalMatchQuery,
+  companyId = null
+) => {
+  const pipeline = [
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'userId',
+        foreignField: '_id',
+        as: 'user',
+      },
+    },
+    { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: 'stores',
+        localField: 'storeId',
+        foreignField: '_id',
+        as: 'store',
+      },
+    },
+    { $unwind: '$store' },
+  ]
+
+  const hasAccess = applyCompanyAndStoreFiltering(
+    pipeline,
+    companyId,
+    isSuperAdmin,
+    user,
+    isCompanyAdmin
+  )
+
+  if (!hasAccess) {
+    return []
+  }
+
+  pipeline.push(
+    { $match: initialMatchQuery },
+    {
+      $addFields: {
+        data: {
+          storeName: '$store.storeName',
+          storeId: '$store._id',
+          userId: '$user._id',
+          userEmail: '$user.email',
+          userRole: '$user.role',
+        },
+      },
+    },
+    {
+      $group: {
+        _id: { $dateToString: { format: '%d/%m/%Y', date: '$createdAt' } },
+        totalAvailableForPickup: {
+          $sum: {
+            $cond: [{ $eq: ['$status', STATUS.AVAILABLE_FOR_PICKUP] }, 1, 0],
+          },
+        },
+        priceOfferToCustomer: {
+          $sum: {
+            $cond: [
+              { $eq: ['$status', STATUS.AVAILABLE_FOR_PICKUP] },
+              { $add: ['$price', { $ifNull: [FIELD_NAMES.BONUS_PRICE, 0] }] },
+              0,
+            ],
+          },
+        },
+        totalPicked: {
+          $sum: { $cond: [{ $in: ['$_id', leadIds] }, 1, 0] },
+        },
+        totalPickedPrice: {
+          $sum: {
+            $cond: [
+              { $in: ['$_id', leadIds] },
+              { $add: ['$price', { $ifNull: [FIELD_NAMES.BONUS_PRICE, 0] }] },
+              0,
+            ],
+          },
+        },
+        pendingForPickup: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ['$status', STATUS.AVAILABLE_FOR_PICKUP] },
+                  { $not: { $in: ['$_id', leadIds] } },
+                ],
+              },
+              1,
+              0,
+            ],
+          },
+        },
+        pendingForPickupPrice: {
+          $sum: {
+            $cond: [
+              {
+                $and: [
+                  { $eq: ['$status', STATUS.AVAILABLE_FOR_PICKUP] },
+                  { $not: { $in: ['$_id', leadIds] } },
+                ],
+              },
+              { $add: ['$price', { $ifNull: [FIELD_NAMES.BONUS_PRICE, 0] }] },
+              0,
+            ],
+          },
+        },
+        data: {
+          $push: {
+            $cond: [
+              { $eq: ['$status', STATUS.COMPLETED] },
+              {
+                storeId: '$data.storeId',
+                storeName: '$data.storeName',
+                region: '$store.region',
+                availableForPickup: 1,
+                price: {
+                  $add: ['$price', { $ifNull: [FIELD_NAMES.BONUS_PRICE, 0] }],
+                },
+              },
+              null,
+            ],
+          },
+        },
+      },
+    },
+    { $match: finalMatchQuery },
+    {
+      $project: {
+        _id: 0,
+        date: '$_id',
+        datenew: {
+          $dateFromString: { dateString: '$_id', format: '%d/%m/%Y' },
+        },
+        totalAvailableForPickup: 1,
+        priceOfferToCustomer: 1,
+        totalPicked: 1,
+        totalPickedPrice: 1,
+        pendingForPickup: 1,
+        pendingForPickupPrice: 1,
+        data: { $filter: { input: '$data', cond: { $ne: ['$$this', null] } } },
+      },
+    },
+    { $sort: { datenew: -1 } }
+  )
+
+  return pipeline
+}
 
 const mapData = (data, key) => {
   try {
-    return data
-      .map((item) => item[key] || 0)
-      .reduce((acc, num) => acc + num, 0);
-  } catch (error) {
-    return 0;
+    return data.map((item) => item[key] || 0).reduce((acc, num) => acc + num, 0)
+  } catch {
+    return 0
   }
-};
+}
+
+const calculateTotals = (result) => ({
+  totalAvailableForPickup: mapData(result, 'totalAvailableForPickup'),
+  totalPriceOfferToCustomer: mapData(result, 'priceOfferToCustomer'),
+  totalPicked: mapData(result, 'totalPicked'),
+  totalPickedPrice: mapData(result, 'totalPickedPrice'),
+  totalPendingForPickup: mapData(result, 'pendingForPickup'),
+  totalPendingForPickupPrice: mapData(result, 'pendingForPickupPrice'),
+})
+
+// Helper to validate company filter access
+const validateCompanyFilter = (companyId, isSuperAdmin, user) => {
+  if (!companyId) {
+    return null
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(companyId)) {
+    return {
+      status: 400,
+      message: 'Invalid companyId format',
+    }
+  }
+
+  if (!isSuperAdmin && companyId !== user.companyId.toString()) {
+    return {
+      status: 403,
+      message: 'Forbidden: Cannot access reports from another company',
+    }
+  }
+
+  return null
+}
+
+// Helper to build match queries
+const buildAdminReportQueries = (search, fromDate, toDate) => {
+  const finalMatchQuery = search
+    ? { 'data.storeName': { $regex: search, $options: 'i' } }
+    : {}
+  const initialMatchQuery = { is_selled: true }
+
+  if (fromDate && toDate) {
+    const { startDate, endDate } = timeRangeCal.timeRangeCal(
+      '',
+      fromDate,
+      toDate
+    )
+    initialMatchQuery.createdAt = {
+      $gte: startDate.toDate(),
+      $lte: endDate.toDate(),
+    }
+  }
+
+  return { initialMatchQuery, finalMatchQuery }
+}
+
+const adminReport = async (req, res) => {
+  try {
+    const userId = req.userId
+    const user = await UsersModel.findById(userId).select(
+      'role storeId companyId assignedStores'
+    )
+    if (!user) {
+      return res.status(403).json({ message: MESSAGES.FORBIDDEN_USER })
+    }
+
+    const isSuperAdmin = user.role === ROLES.SUPER_ADMIN
+    const isCompanyAdmin = user.role === 'Company Admin'
+    const { search, fromDate, toDate, companyId } = req.query
+
+    // Validate company filter access
+    const validationError = validateCompanyFilter(
+      companyId,
+      isSuperAdmin,
+      user
+    )
+    if (validationError) {
+      return res
+        .status(validationError.status)
+        .json({ message: validationError.message })
+    }
+
+    const { initialMatchQuery, finalMatchQuery } = buildAdminReportQueries(
+      search,
+      fromDate,
+      toDate
+    )
+
+    const leadIds = await devicesLotModel.distinct('deviceList', {
+      status: STATUS.PICKUP_CONFIRMED,
+    })
+
+    const pipeline = buildPipeline(
+      user,
+      isSuperAdmin,
+      isCompanyAdmin,
+      leadIds,
+      initialMatchQuery,
+      finalMatchQuery,
+      companyId
+    )
+
+    if (pipeline.length === 0) {
+      return res.status(200).json({ total: {}, result: [] })
+    }
+
+    const result = await leadModel.aggregate(pipeline)
+    const total = calculateTotals(result)
+
+    return res.status(200).json({ total, result })
+  } catch (err) {
+    return res.status(500).json({ message: err.message, status: 500 })
+  }
+}
 
 export default {
   create,
@@ -447,4 +726,4 @@ export default {
   findAll,
   uploadData,
   adminReport,
-};
+}

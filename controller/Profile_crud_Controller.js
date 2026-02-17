@@ -151,8 +151,46 @@ async function Deleteimage(req, res) {
   }
 }
 
+async function GetUserDetails(req, res) {
+  try {
+    const userId = req.userId;
+
+    const user = await users.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: userNotFound });
+    }
+
+    const profile = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      state: user.state,
+      city: user.city,
+      address: user.address,
+      companyName: user.companyName,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      managerName: user.managerName,
+      pincode: user.pincode,
+      website: user.website,
+      profileImage: user.profileImage,
+      phoneNumber: user.phoneNumber,
+    };
+
+    return res.status(200).json({
+      success: true,
+      user: profile
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
 export default {
   Edituser,
   Uploadimage,
   Deleteimage,
+  GetUserDetails,
 };

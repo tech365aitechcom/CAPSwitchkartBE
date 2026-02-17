@@ -1,11 +1,22 @@
-import mongoose from "mongoose";
-const { Schema } = mongoose;
+import mongoose from 'mongoose'
+const { Schema } = mongoose
 
 const storeSchema = new Schema(
   {
+    storeId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
     storeName: {
       type: String,
       required: true,
+    },
+    companyId: {
+      type: Schema.Types.ObjectId,
+      required: true,
+      ref: 'company',
+      index: true,
     },
     region: {
       type: String,
@@ -13,7 +24,7 @@ const storeSchema = new Schema(
     },
     email: {
       type: String,
-      required: true,
+      required: false,
     },
     uniqueId: {
       type: String,
@@ -27,19 +38,24 @@ const storeSchema = new Schema(
       type: String,
       required: true,
     },
+    status: {
+      type: String,
+      enum: ['active', 'inactive'],
+      default: 'active',
+    },
     createdBy: {
       type: Schema.Types.ObjectId,
       required: true,
-      ref: "users",
+      ref: 'users',
     },
     updatedBy: {
       type: Schema.Types.ObjectId,
-      ref: "users",
+      ref: 'users',
     },
   },
   { timestamps: true }
-);
+)
 
-const storeModel = mongoose.model("store", storeSchema);
+const storeModel = mongoose.model('store', storeSchema)
 
-export default storeModel;
+export default storeModel

@@ -14,4 +14,11 @@ phoneConditonRoute.post(
   phoneConditonController.insertMany
 );
 
+phoneConditonRoute.put(
+  "/update-grades",
+  verifyToken,
+  upload.single("file"),
+  phoneConditonController.updateGrades
+);
+
 export default phoneConditonRoute;

@@ -6,6 +6,18 @@ import timeRangeCal from "../utils/timeRangeCal.js";
 import brands from "../models/brandsModel.js";
 const ISE = "Interna Server Error";
 
+// 🔹 helper to map aggregation result -> models
+async function fetchModelsFromResult(result) {
+  const modelsArray = [];
+  for (let i = 0; i < result.length; i++) {
+    const model = await models.findById(result[i]._id);
+    if (model !== null) {
+      modelsArray.push(model);
+    }
+  }
+  return modelsArray;
+}
+
 const Prospect = async (req, res) => {
   try {
     const userId = req.userId;
@@ -18,18 +30,17 @@ const Prospect = async (req, res) => {
     return res.status(500).json({ success: false, error: error.message });
   }
 };
+
 export const leadPipe = [
   {
     $lookup: {
-      from: "stores",
-      localField: "user.storeId",
+      from: "store",
+      localField: "storeId", //changed from userId.storeId to storeId
       foreignField: "_id",
       as: "store",
     },
   },
-  {
-    $unwind: "$store",
-  },
+  { $unwind: { path: "$store", preserveNullAndEmptyArrays: true } },
   {
     $lookup: {
       from: "models",
@@ -38,9 +49,7 @@ export const leadPipe = [
       as: "model",
     },
   },
-  {
-    $unwind: "$model",
-  },
+  { $unwind: "$model" },
   {
     $lookup: {
       from: "categories",
@@ -49,9 +58,7 @@ export const leadPipe = [
       as: "categoryInfo",
     },
   },
-  {
-    $unwind: { path: "$categoryInfo", preserveNullAndEmptyArrays: true },
-  },
+  { $unwind: { path: "$categoryInfo", preserveNullAndEmptyArrays: true } },
 ];
 
 //order complemeted
@@ -64,7 +71,6 @@ const saled = async (req, res) => {
       fromdate,
       todate
     );
-    console.log(userid);
     const aggregationPipeline = [
       {
         $match: {
@@ -81,9 +87,7 @@ const saled = async (req, res) => {
           as: "doc",
         },
       },
-      {
-        $unwind: "$doc",
-      },
+      { $unwind: "$doc" },
       {
         $lookup: {
           from: "users",
@@ -92,16 +96,22 @@ const saled = async (req, res) => {
           as: "user",
         },
       },
+      { $unwind: "$user" },
+      //NEW: Lookup Company details using user.companyId
       {
-        $unwind: "$user",
+        $lookup: {
+          from: "companies",
+          localField: "user.companyId",
+          foreignField: "_id",
+          as: "companyData",
+        },
       },
+      // Preserve nulls so old users without company don't get filtered out
+      { $unwind: { path: "$companyData", preserveNullAndEmptyArrays: true } },
       ...leadPipe,
       { $match: { "model.type": datareq } },
-      {
-        $sort: { updatedAt: -1 },
-      },
+      { $sort: { updatedAt: -1 } },
     ];
-    //  console.log(aggregationPipeline)
     if (search) {
       aggregationPipeline.push({
         $match: {
@@ -118,6 +128,7 @@ const saled = async (req, res) => {
         updatedAt: 1,
         "user.name": 1,
         "doc.IMEI": 1,
+        "doc.signature": 1,
         store: 1,
         name: 1,
         emailId: 1,
@@ -126,9 +137,14 @@ const saled = async (req, res) => {
         uniqueCode: 1,
         storage: 1,
         ram: 1,
-        price: "$price",
+        price: { $add: ["$price", "$bonusPrice"] },
         model: 1,
         category: "$categoryInfo.categoryName",
+        //NEW: Project the company settings (Default to false if missing)
+        companyInfo: {
+          showPrice: { $ifNull: ["$companyData.showPrice", false] },
+          maskInfo: { $ifNull: ["$companyData.maskInfo", false] },
+        },
       },
     });
     const leadss = await leads.aggregate(aggregationPipeline);
@@ -146,7 +162,6 @@ const addViewedPhone = async (req, res) => {
   const { modelId } = req.body;
   try {
     const addView = new quickview({ userId, modelId });
-
     await addView.save();
     res.status(200).json({ message: "Data saved successfully" });
   } catch (error) {
@@ -156,15 +171,12 @@ const addViewedPhone = async (req, res) => {
 
 const getViewedPhone = async (req, res) => {
   const userId = req.userId;
-
   try {
     const countQuickview = await quickview.countDocuments({ userId });
-
     const views = await quickview
       .find({ userId })
       .populate("modelId")
       .sort("-viewedAt");
-
     const viewModelsData = views.map((viewItem) => viewItem.modelId);
 
     res.status(200).json({ countQuickview, viewModelsData });
@@ -174,7 +186,6 @@ const getViewedPhone = async (req, res) => {
 };
 
 //top seeling models /phones
-
 async function topSelling(req, res) {
   try {
     const USERid = new mongoose.Types.ObjectId(req.userId);
@@ -189,9 +200,7 @@ async function topSelling(req, res) {
           as: "modelsData",
         },
       },
-      {
-        $unwind: "$modelsData",
-      },
+      { $unwind: "$modelsData" },
       {
         $lookup: {
           from: "categories",
@@ -200,28 +209,14 @@ async function topSelling(req, res) {
           as: "categoryInfo",
         },
       },
-      {
-        $unwind: { path: "$categoryInfo", preserveNullAndEmptyArrays: true },
-      },
-      {
-        $match: {
-          "modelsData.type": deviceType,
-        },
-      },
+      { $unwind: { path: "$categoryInfo", preserveNullAndEmptyArrays: true } },
+      { $match: { "modelsData.type": deviceType } },
       { $group: { _id: "$modelId", count: { $sum: 1 } } },
       { $sort: { count: -1 } },
     ]);
 
-    const modelsSlice = [];
-    for (let i = 0; i < result.length; i++) {
-      const model = await models.findById(result[i]._id);
-      if (model !== null) {
-        modelsSlice.push(model);
-      }
-    }
-
-    const limitedModelsArray = modelsSlice.slice(0, 7);
-    res.status(200).json(limitedModelsArray);
+    const modelsSlice = await fetchModelsFromResult(result);
+    res.status(200).json(modelsSlice.slice(0, 7));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: ISE });
@@ -241,7 +236,6 @@ async function searchPhone(req, res) {
     }
 
     if (origin === allowedDomain) {
-      // Only Apple devices for buyback domain
       const appleBrand = await brands.findOne({ name: "Apple" }).select("_id");
       if (appleBrand) {
         query.brandId = appleBrand._id;
@@ -249,7 +243,6 @@ async function searchPhone(req, res) {
     }
 
     const phones = await models.find(query).lean();
-
     phoneName = phoneName.replace(/\s/g, "");
     const regex = new RegExp(phoneName, "i");
 
@@ -278,23 +271,14 @@ async function adminSelingget(req, res) {
       { $sort: { count: -1 } },
     ]);
 
-    const modelsArray = [];
-    for (let i = 0; i < result.length; i++) {
-      const model = await models.findById(result[i]._id);
-
-      if (model !== null) {
-        modelsArray.push(model);
-      }
-    }
-
-    const limitedModelsArray = modelsArray.slice(0, 10);
-
-    res.status(200).json(limitedModelsArray);
+    const modelsArray = await fetchModelsFromResult(result);
+    res.status(200).json(modelsArray.slice(0, 10));
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: ISE });
   }
 }
+
 export default {
   Prospect,
   saled,

@@ -19,6 +19,8 @@ const condtionCodesSchema = new Schema(
     functionalCondition: { type: String },
     accessoriesCondition: { type: String },
     grade: { type: String },
+    deviceType: { type: String },
+    warrentyCondition: { type: String },
   },
   { timestamps: true }
 );

@@ -1,24 +1,27 @@
-import questionnaire from "../models/questionnaireModel.js";
-import leads from "../models/leadsModel.js";
-import models from "../models/modelsModel.js";
-import gradeprices from "../models/gradePriceModel.js";
-import phoneCondition from "../models/phoneConditon.js";
-import documents from "../models/documents.model.js";
-import groups from "../models/groupsModel.js";
-import XLSX from "xlsx";
-import axios from "axios";
-import FormData from "form-data";
-import fs from "fs";
-import { fileURLToPath } from "url";
-import path, { dirname } from "path";
-import leadsController from "./leadsController.js";
-import os from "os";
-import * as msal from "@azure/msal-node";
-import { Client } from "@microsoft/microsoft-graph-client";
-import "isomorphic-fetch";
+import questionnaire from '../models/questionnaireModel.js'
+import leads from '../models/leadsModel.js'
+import models from '../models/modelsModel.js'
+import gradeprices from '../models/gradePriceModel.js'
+import phoneCondition from '../models/phoneConditon.js'
+import documents from '../models/documents.model.js'
+import groups from '../models/groupsModel.js'
+import codeModelFactory from '../models/codeModel.js'
+import mongoose from 'mongoose'
+const Code = codeModelFactory(mongoose.connection)
+import XLSX from 'xlsx'
+import axios from 'axios'
+import FormData from 'form-data'
+import fs from 'fs'
+import { fileURLToPath } from 'url'
+import path, { dirname } from 'path'
+import leadsController from './leadsController.js'
+import os from 'os'
+import * as msal from '@azure/msal-node'
+import { Client } from '@microsoft/microsoft-graph-client'
+import 'isomorphic-fetch'
 
-const fileName = fileURLToPath(import.meta.url);
-const dirName = dirname(fileName);
+const fileName = fileURLToPath(import.meta.url)
+const dirName = dirname(fileName)
 import {
   CORE1,
   CORE2,
@@ -41,26 +44,13 @@ import {
   ACCESSORIES1,
   ACCESSORIES2,
   ACCESSORIES3,
-} from "../const.js";
-import condtionCodesWatch from "../models/conditionCodesWatchModel.js";
-import transporter from "../utils/transporter.js";
+} from '../const.js'
+import condtionCodesWatch from '../models/conditionCodesWatchModel.js'
+import transporter from '../utils/transporter.js'
 
 const convertGrade = (grade) => {
-  const grades = {
-    "A+": "A_PLUS",
-    A: "A",
-    B: "B",
-    "B-": "B_MINUS",
-    "C+": "C_PLUS",
-    C: "C",
-    "C-": "C_MINUS",
-    "D+": "D_PLUS",
-    D: "D",
-    "D-": "D_MINUS",
-    E: "E",
-  };
-  return grades[grade];
-};
+  return grade.replace('+', '_PLUS').replace('-', '_MINUS')
+}
 
 async function sendMailWithGraph(mailOptions) {
   try {
@@ -70,107 +60,133 @@ async function sendMailWithGraph(mailOptions) {
         authority: `https://login.microsoftonline.com/${process.env.TENANT_ID}`,
         clientSecret: process.env.CLIENT_SECRET,
       },
-    };
-    const cca = new msal.ConfidentialClientApplication(msalConfig);
+    }
+    const cca = new msal.ConfidentialClientApplication(msalConfig)
 
     const authResponse = await cca.acquireTokenByClientCredential({
-      scopes: ["https://graph.microsoft.com/.default"],
-    });
+      scopes: ['https://graph.microsoft.com/.default'],
+    })
 
     if (!authResponse || !authResponse.accessToken) {
-      throw new Error("Failed to acquire access token for Graph API");
+      throw new Error('Failed to acquire access token for Graph API')
     }
 
     const graphClient = Client.init({
       authProvider: (done) => {
-        done(null, authResponse.accessToken);
+        done(null, authResponse.accessToken)
       },
-    });
+    })
 
     const message = {
       subject: mailOptions.subject,
       body: {
-        contentType: "HTML",
+        contentType: 'HTML',
         content: mailOptions.html,
       },
       toRecipients: [{ emailAddress: { address: mailOptions.to } }],
       attachments: [],
-    };
+    }
 
     if (mailOptions.attachments && mailOptions.attachments.length > 0) {
       for (const attachment of mailOptions.attachments) {
         message.attachments.push({
-          "@odata.type": "#microsoft.graph.fileAttachment",
+          '@odata.type': '#microsoft.graph.fileAttachment',
           name: attachment.filename,
           contentType: attachment.contentType,
-          contentBytes: attachment.content.toString("base64"),
-        });
+          contentBytes: attachment.content.toString('base64'),
+        })
       }
     }
 
     await graphClient
       .api(`/users/${process.env.SENDER_MAIL_USER_ID}/sendMail`)
-      .post({ message });
+      .post({ message })
 
-    console.log("✅ Email sent successfully using Microsoft Graph!");
+    console.log('✅ Email sent successfully using Microsoft Graph!')
   } catch (error) {
-    console.error("🔥 Error sending email with Graph API:", error);
-    throw error;
+    console.error('🔥 Error sending email with Graph API:', error)
+    throw error
   }
 }
 
 const create = async (req, res) => {
   try {
-    const { group, yes, no, quetion } = req.body;
+    const { group, yes, no, quetion } = req.body
     if (!group || !yes || !no || !quetion || !req.body.default) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: 'All fields are required' })
     }
-    const data = await questionnaire.create(req.body);
+    const data = await questionnaire.create(req.body)
     return res
       .status(200)
-      .json({ data, message: "questionnaires created successfully." });
+      .json({ data, message: 'questionnaires created successfully.' })
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ message: error.message });
+    console.log(error)
+    return res.status(500).json({ message: error.message })
   }
-};
+}
 
 const insertMany = async (req, res) => {
-  const cs = convertCsvToJson(req.file);
+  const cs = convertCsvToJson(req.file)
   try {
-    const data = await questionnaire.insertMany(cs);
+    const data = await questionnaire.insertMany(cs)
     res
       .status(200)
-      .json({ data, message: "questionnaires created successfully." });
+      .json({ data, message: 'questionnaires created successfully.' })
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: error.message });
+    console.log(error)
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
 const findAll = async (req, res) => {
   try {
-    const page = Number(req.query.page) || 0;
-    const deviceType = req.query.type || "CTG1";
-    const limit = 50;
-    const data = await questionnaire
-      .find({ type: deviceType })
-      .limit(limit)
-      .skip(page * limit)
-      .sort({ viewOn: 1 });
-    const totalCounts = await questionnaire.countDocuments({
-      type: deviceType,
-    });
+    const page = Number(req.query.page) || 0
+    const deviceType = req.query.type || 'CTG1'
+    const limit = Number(req.query.limit) || 50
+
+    const data = await questionnaire.aggregate([
+      { $match: { type: deviceType } },
+      { $sort: { viewOn: 1 } },
+      { $skip: page * limit },
+      { $limit: limit },
+      {
+        $addFields: {
+          groupObjectId: { $toObjectId: '$group' },
+        },
+      },
+      {
+        $lookup: {
+          from: 'groups',
+          localField: 'groupObjectId',
+          foreignField: '_id',
+          as: 'groupInfo',
+        },
+      },
+      {
+        $addFields: {
+          groupName: {
+            $cond: {
+              if: { $gt: [{ $size: '$groupInfo' }, 0] },
+              then: { $arrayElemAt: ['$groupInfo.name', 0] },
+              else: '$groupName',
+            },
+          },
+        },
+      },
+      { $project: { groupObjectId: 0, groupInfo: 0 } },
+    ])
+
+    const totalCounts = await questionnaire.countDocuments({ type: deviceType })
     res.status(200).json({
       data,
       totalCounts,
-      message: "questionnaires fetched successfully.",
-    });
+      message: 'questionnaires fetched successfully.',
+    })
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: error.message });
+    console.log(error)
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
 // ==================== DYNAMIC GROUP CODE CALCULATION ====================
 
@@ -182,66 +198,66 @@ const findAll = async (req, res) => {
  */
 function calculateGroupCode(groupAnswers, possibleCodes) {
   if (!groupAnswers || groupAnswers.length === 0) {
-    return possibleCodes[possibleCodes.length - 1]; // Return lowest code as default
+    return possibleCodes[possibleCodes.length - 1] // Return lowest code as default
   }
 
   // Check each code from highest to lowest priority
   for (const code of possibleCodes) {
-    const matchingAnswers = groupAnswers.filter((e) => e.answer === code);
+    const matchingAnswers = groupAnswers.filter((e) => e.answer === code)
     if (matchingAnswers.length > 0) {
-      return code;
+      return code
     }
   }
 
   // If no match found, return the lowest code
-  return possibleCodes[possibleCodes.length - 1];
+  return possibleCodes[possibleCodes.length - 1]
 }
 
 function DisplayCodeUpd(QNA, query) {
   let display = QNA?.Display
     ? QNA.Display.filter((e) => e.answer === DISPLAY3)
-    : [];
-  query.displayCode = DISPLAY3;
+    : []
+  query.displayCode = DISPLAY3
   if (!display.length) {
-    display = QNA.Display.filter((e) => e.answer === DISPLAY2);
-    query.displayCode = DISPLAY2;
+    display = QNA.Display.filter((e) => e.answer === DISPLAY2)
+    query.displayCode = DISPLAY2
     if (!display.length) {
-      QNA.Display.filter((e) => e.answer === DISPLAY1);
-      query.displayCode = DISPLAY1;
+      QNA.Display.filter((e) => e.answer === DISPLAY1)
+      query.displayCode = DISPLAY1
     }
   }
 }
 
 function FuncMajorUpd(QNA, query) {
-  let functionalMajor = QNA?.["Functional Major"]
-    ? QNA["Functional Major"].filter((e) => e.answer === FUNCTIONAL_MAJOR3)
-    : [];
-  query.functionalMajorCode = FUNCTIONAL_MAJOR3;
+  let functionalMajor = QNA?.['Functional Major']
+    ? QNA['Functional Major'].filter((e) => e.answer === FUNCTIONAL_MAJOR3)
+    : []
+  query.functionalMajorCode = FUNCTIONAL_MAJOR3
   if (!functionalMajor.length) {
-    functionalMajor = QNA["Functional Major"].filter(
+    functionalMajor = QNA['Functional Major'].filter(
       (e) => e.answer === FUNCTIONAL_MAJOR2,
-    );
-    query.functionalMajorCode = FUNCTIONAL_MAJOR2;
+    )
+    query.functionalMajorCode = FUNCTIONAL_MAJOR2
     if (!functionalMajor.length) {
-      QNA["Functional Major"].filter((e) => e.answer === FUNCTIONAL_MAJOR1);
-      query.functionalMajorCode = FUNCTIONAL_MAJOR1;
+      QNA['Functional Major'].filter((e) => e.answer === FUNCTIONAL_MAJOR1)
+      query.functionalMajorCode = FUNCTIONAL_MAJOR1
     }
   }
 }
 
 function FuncMinorUpd(QNA, query) {
-  let functionalMinor = QNA?.["Functional Minor"]
-    ? QNA["Functional Minor"].filter((e) => e.answer === FUNCTIONAL_MINOR3)
-    : [];
-  query.functionalMinorCode = FUNCTIONAL_MINOR3;
+  let functionalMinor = QNA?.['Functional Minor']
+    ? QNA['Functional Minor'].filter((e) => e.answer === FUNCTIONAL_MINOR3)
+    : []
+  query.functionalMinorCode = FUNCTIONAL_MINOR3
   if (!functionalMinor.length) {
-    functionalMinor = QNA["Functional Minor"].filter(
+    functionalMinor = QNA['Functional Minor'].filter(
       (e) => e.answer === FUNCTIONAL_MINOR2,
-    );
-    query.functionalMinorCode = FUNCTIONAL_MINOR2;
+    )
+    query.functionalMinorCode = FUNCTIONAL_MINOR2
     if (!functionalMinor.length) {
-      QNA["Functional Minor"].filter((e) => e.answer === FUNCTIONAL_MINOR1);
-      query.functionalMinorCode = FUNCTIONAL_MINOR1;
+      QNA['Functional Minor'].filter((e) => e.answer === FUNCTIONAL_MINOR1)
+      query.functionalMinorCode = FUNCTIONAL_MINOR1
     }
   }
 }
@@ -249,17 +265,17 @@ function FuncMinorUpd(QNA, query) {
 function CosmeticsUpd(QNA, query) {
   let cosmetics = QNA?.Cosmetics
     ? QNA.Cosmetics.filter((e) => e.answer === COSMETICS4)
-    : [];
-  query.cosmeticsCode = COSMETICS4;
+    : []
+  query.cosmeticsCode = COSMETICS4
   if (!cosmetics.length) {
-    cosmetics = QNA.Cosmetics.filter((e) => e.answer === COSMETICS3);
-    query.cosmeticsCode = COSMETICS3;
+    cosmetics = QNA.Cosmetics.filter((e) => e.answer === COSMETICS3)
+    query.cosmeticsCode = COSMETICS3
     if (!cosmetics.length) {
-      cosmetics = QNA.Cosmetics.filter((e) => e.answer === COSMETICS2);
-      query.cosmeticsCode = COSMETICS2;
+      cosmetics = QNA.Cosmetics.filter((e) => e.answer === COSMETICS2)
+      query.cosmeticsCode = COSMETICS2
       if (!cosmetics.length) {
-        QNA.Cosmetics.filter((e) => e.answer === COSMETICS1);
-        query.cosmeticsCode = COSMETICS1;
+        QNA.Cosmetics.filter((e) => e.answer === COSMETICS1)
+        query.cosmeticsCode = COSMETICS1
       }
     }
   }
@@ -268,47 +284,52 @@ function CosmeticsUpd(QNA, query) {
 const calculatePrice = async (req, res) => {
   try {
     const { QNA, phoneNumber, modelId, storage, name, ram, aadharNumber } =
-      req.body;
+      req.body
 
     // Validate required inputs
     if (!QNA || !phoneNumber || !modelId) {
       return res.status(403).json({
         success: false,
-        message: "QNA, phone number, and modelId are required",
-      });
+        message: 'QNA, phone number, and modelId are required',
+      })
     }
 
     // Build query and calculate grade
-    const query = buildQuery(QNA);
-    console.log("query", query);
-    const gradeData = await fetchGradeData(query);
-    console.log("gradeData", gradeData);
+    const query = await buildQuery(QNA)
+    console.log('query', query)
+    const gradeData = await fetchGradeData(query)
+    console.log('gradeData', gradeData)
     // Fetch price data
-    const priceData = await fetchPriceData(modelId, storage, ram);
-    console.log("priceData", priceData);
+    const priceData = await fetchPriceData(modelId, storage, ram)
+    console.log('priceData', priceData)
 
     if (!priceData || !priceData.grades) {
       console.error(
         `No price data found for modelId: ${modelId}, storage: ${storage}, ram: ${ram}`,
-      );
+      )
       return res.status(404).json({
         success: false,
-        message: "Price data not found for this device configuration.",
-      });
+        message: 'Price data not found for this device configuration.',
+      })
     }
 
     // Calculate price
-    const price = calculatePriceFromGrades(priceData, gradeData, query);
+    let price
+    try {
+      price = calculatePriceFromGrades(priceData, gradeData, query)
+    } catch (e) {
+      return res.status(404).json({ success: false, message: e.message })
+    }
 
     // Fetch additional model data
-    const modelData = await models.findOne({ _id: modelId }).select("brandId");
+    const modelData = await models.findOne({ _id: modelId }).select('brandId')
 
     if (!modelData) {
-      console.error(`Model data not found for modelId: ${modelId}`);
+      console.error(`Model data not found for modelId: ${modelId}`)
       return res.status(404).json({
         success: false,
-        message: "Device model not found.",
-      });
+        message: 'Device model not found.',
+      })
     }
 
     const userDetails = {
@@ -316,16 +337,16 @@ const calculatePrice = async (req, res) => {
       phoneNumber,
       aadharNumber,
       name,
-    };
-    console.log(userDetails);
+    }
+    console.log(userDetails)
 
     const modelDetails = {
       modelId,
       brandId: modelData.brandId,
       storage,
       ram,
-    };
-    console.log(modelDetails);
+    }
+    console.log(modelDetails)
 
     // Build lead object
     const obj = buildLeadObject(
@@ -334,16 +355,16 @@ const calculatePrice = async (req, res) => {
       modelDetails,
       gradeData,
       price,
-    );
-    console.log(obj);
+    )
+    console.log(obj)
 
     // Generate lead and return response
     const { lead, uniqueCode } = await generateLeadAndUpdateOrCreate(
       req,
       obj,
       buildQueryParam(phoneNumber, modelId, storage, ram, req.userId),
-    );
-    console.log(gradeData);
+    )
+    console.log(gradeData)
 
     return res.status(200).json({
       data: {
@@ -352,13 +373,13 @@ const calculatePrice = async (req, res) => {
         grade: gradeData.grade,
         uniqueCode,
       },
-      message: "Price fetched successfully.",
-    });
+      message: 'Price fetched successfully.',
+    })
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: error.message });
+    console.error(error)
+    return res.status(500).json({ message: error.message })
   }
-};
+}
 
 // Helper Functions
 /**
@@ -366,74 +387,100 @@ const calculatePrice = async (req, res) => {
  * @param {Object} QNA - Contains all group answers
  * @returns {Object} - Query object with all group codes
  */
-function buildQuery(QNA) {
-  const query = {};
+async function buildQuery(QNA) {
+  const query = {}
 
-  // Core group
-  if (QNA.Core) {
-    const coreCodes = [CORE2, CORE1];
-    query.coreCode = calculateGroupCode(QNA.Core, coreCodes);
+  // Known groups with their fixed condition keys and code priority order
+  const knownGroups = {
+    Core: { key: 'coreCode', codes: [CORE2, CORE1] },
+    Display: { key: 'displayCode', codes: [DISPLAY3, DISPLAY2, DISPLAY1] },
+    'Functional Major': {
+      key: 'functionalMajorCode',
+      codes: [FUNCTIONAL_MAJOR3, FUNCTIONAL_MAJOR2, FUNCTIONAL_MAJOR1],
+    },
+    'Functional Minor': {
+      key: 'functionalMinorCode',
+      codes: [FUNCTIONAL_MINOR3, FUNCTIONAL_MINOR2, FUNCTIONAL_MINOR1],
+    },
+    Cosmetics: {
+      key: 'cosmeticsCode',
+      codes: [COSMETICS4, COSMETICS3, COSMETICS2, COSMETICS1],
+    },
+    Accessories: {
+      key: 'accessoriesCode',
+      codes: [ACCESSORIES3, ACCESSORIES1, ACCESSORIES2],
+    },
   }
 
-  // Display group
-  if (QNA.Display) {
-    const displayCodes = [DISPLAY3, DISPLAY2, DISPLAY1];
-    query.displayCode = calculateGroupCode(QNA.Display, displayCodes);
+  for (const [groupName, groupAnswers] of Object.entries(QNA)) {
+    if (!groupAnswers || groupAnswers.length === 0) continue
+
+    // Warranty has special logic (radio-style: one winner)
+    if (groupName === 'Warranty') {
+      const warrantyMatches = groupAnswers.filter((e) => e.answer === WARRANTY1)
+      query.warrentyCode = warrantyMatches.length ? WARRANTY1 : WARRANTY2
+      continue
+    }
+
+    const known = knownGroups[groupName]
+    if (known) {
+      query[known.key] = calculateGroupCode(groupAnswers, known.codes)
+      continue
+    }
+
+    // Dynamic group — fetch ordered code values from the codes collection
+    const groupDoc = await groups.findOne({ name: groupName }).select('codes')
+    if (!groupDoc || !groupDoc.codes || groupDoc.codes.length === 0) {
+      console.warn(`buildQuery: group "${groupName}" has no codes defined, skipping.`)
+      continue
+    }
+
+    // Fetch code documents preserving the priority order from the codes array
+    const codeDocs = await Code.find({ _id: { $in: groupDoc.codes } })
+    const orderedCodes = groupDoc.codes
+      .map((id) => codeDocs.find((doc) => doc._id.equals(id)))
+      .filter(Boolean)
+      .map((doc) => doc.code)
+
+    if (!orderedCodes.length) {
+      console.warn(`buildQuery: group "${groupName}" code documents not found, skipping.`)
+      continue
+    }
+
+    // Detect which condtioncodes field these code values belong to.
+    // Use the native collection driver so undeclared schema fields are visible.
+    // $objectToArray converts the document to [{k, v}] pairs — find where v is in orderedCodes.
+    const sample = await phoneCondition.collection.findOne({
+      $expr: {
+        $gt: [
+          {
+            $size: {
+              $filter: {
+                input: { $objectToArray: '$$ROOT' },
+                cond: { $in: ['$$this.v', orderedCodes] },
+              },
+            },
+          },
+          0,
+        ],
+      },
+    })
+
+    const conditionKey = sample
+      ? Object.keys(sample).find(
+          (k) => k.endsWith('Code') && orderedCodes.includes(sample[k])
+        )
+      : null
+
+    if (!conditionKey) {
+      console.warn(`buildQuery: group "${groupName}" could not detect conditionKey from condtioncodes, skipping.`)
+      continue
+    }
+
+    query[conditionKey] = calculateGroupCode(groupAnswers, orderedCodes)
   }
 
-  // Functional Major group
-  if (QNA["Functional Major"]) {
-    const functionalMajorCodes = [
-      FUNCTIONAL_MAJOR3,
-      FUNCTIONAL_MAJOR2,
-      FUNCTIONAL_MAJOR1,
-    ];
-    query.functionalMajorCode = calculateGroupCode(
-      QNA["Functional Major"],
-      functionalMajorCodes,
-    );
-  }
-
-  // Functional Minor group
-  if (QNA["Functional Minor"]) {
-    const functionalMinorCodes = [
-      FUNCTIONAL_MINOR3,
-      FUNCTIONAL_MINOR2,
-      FUNCTIONAL_MINOR1,
-    ];
-    query.functionalMinorCode = calculateGroupCode(
-      QNA["Functional Minor"],
-      functionalMinorCodes,
-    );
-  }
-
-  // Cosmetics group
-  if (QNA.Cosmetics) {
-    const cosmeticsCodes = [COSMETICS4, COSMETICS3, COSMETICS2, COSMETICS1];
-    query.cosmeticsCode = calculateGroupCode(QNA.Cosmetics, cosmeticsCodes);
-  }
-
-  // Warranty group
-  if (QNA.Warranty) {
-    const warrantyCodes = [WARRANTY1, WARRANTY2];
-    const warrantyMatches = QNA.Warranty.filter((e) => e.answer === WARRANTY1);
-    query.warrentyCode = warrantyMatches.length ? WARRANTY1 : WARRANTY2;
-  }
-
-  // Accessories group
-  if (QNA.Accessories) {
-    const accessoriesCodes = [ACCESSORIES3, ACCESSORIES1, ACCESSORIES2];
-    query.accessoriesCode = calculateGroupCode(
-      QNA.Accessories,
-      accessoriesCodes,
-    );
-  }
-
-  // Handle any new groups dynamically
-  // If a group doesn't match the above, it will be skipped for now
-  // You can extend this logic to handle completely dynamic groups from database
-
-  return query;
+  return query
 }
 
 /**
@@ -441,18 +488,18 @@ function buildQuery(QNA) {
  */
 async function fetchGradeData(query) {
   try {
-    const gradeData = await phoneCondition.findOne(query).select("grade");
+    const gradeData = await phoneCondition.findOne(query).select('grade')
 
     if (!gradeData) {
-      console.error("No matching grade condition found for query:", query);
+      console.error('No matching grade condition found for query:', query)
       // Return default grade E if no condition matches
-      return { grade: "E" };
+      return { grade: 'E' }
     }
 
-    return gradeData;
+    return gradeData
   } catch (error) {
-    console.error("Error fetching grade data:", error);
-    throw error;
+    console.error('Error fetching grade data:', error)
+    throw error
   }
 }
 
@@ -467,8 +514,8 @@ const fetchPriceData = async (modelId, storage, ram) => {
         { storage: { $exists: false }, RAM: { $exists: false } },
       ],
     })
-    .select("grades");
-};
+    .select('grades')
+}
 
 const calculatePriceFromGrades = (priceData, gradeData, query) => {
   // Get all available grades sorted (best to worst)
@@ -477,77 +524,41 @@ const calculatePriceFromGrades = (priceData, gradeData, query) => {
       (key) =>
         priceData.grades[key] !== null && priceData.grades[key] !== undefined,
     )
-    .sort();
+    .sort()
 
   if (availableGrades.length === 0) {
-    throw new Error("No valid grades found in price data");
+    throw new Error('No valid grades found in price data')
   }
 
-  const lowestGrade = availableGrades[availableGrades.length - 1];
+  const lowestGrade = availableGrades[availableGrades.length - 1]
 
   // If core issue exists (CORE2), return lowest grade price
   if (query.coreCode && query.coreCode === CORE2) {
-    return priceData.grades[lowestGrade];
+    return priceData.grades[lowestGrade]
   }
 
   // Get the converted grade
-  const convertedGrade = convertGrade(gradeData.grade);
+  const convertedGrade = convertGrade(gradeData.grade)
 
   // Check if the exact grade exists
   if (
     priceData.grades[convertedGrade] !== undefined &&
     priceData.grades[convertedGrade] !== null
   ) {
-    return priceData.grades[convertedGrade];
+    return priceData.grades[convertedGrade]
   }
 
-  // Fallback: Find the closest lower grade or use lowest available
-  console.warn(
-    `Grade ${gradeData.grade} (${convertedGrade}) not found in price data. Using fallback logic.`,
-  );
-
-  // Define grade hierarchy from best to worst
-  const gradeHierarchy = [
-    "A_PLUS",
-    "A",
-    "B_PLUS",
-    "B",
-    "B_MINUS",
-    "C_PLUS",
-    "C",
-    "C_MINUS",
-    "D_PLUS",
-    "D",
-    "D_MINUS",
-    "E",
-  ];
-
-  // Find position of requested grade
-  const requestedIndex = gradeHierarchy.indexOf(convertedGrade);
-
-  // Look for the nearest available grade (equal or worse)
-  for (let i = requestedIndex; i < gradeHierarchy.length; i++) {
-    if (priceData.grades[gradeHierarchy[i]] !== undefined) {
-      console.log(
-        `Using grade ${gradeHierarchy[i]} instead of ${convertedGrade}`,
-      );
-      return priceData.grades[gradeHierarchy[i]];
-    }
-  }
-
-  // If still not found, use the lowest available grade
-  console.log(`Using lowest available grade ${lowestGrade}`);
-  return priceData.grades[lowestGrade];
-};
+  throw new Error(`Price not found for grade ${gradeData.grade}`)
+}
 
 const buildLeadObject = (req, userDetails, modelDetails, gradeData, price) => {
-  const { QNA, phoneNumber, aadharNumber, name } = userDetails;
-  const { modelId, brandId, storage, ram } = modelDetails;
+  const { QNA, phoneNumber, aadharNumber, name } = userDetails
+  const { modelId, brandId, storage, ram } = modelDetails
 
   return {
     QNA,
     phoneNumber,
-    aadharNumber: aadharNumber || "",
+    aadharNumber: aadharNumber || '',
     name,
     modelId,
     brandId,
@@ -558,8 +569,8 @@ const buildLeadObject = (req, userDetails, modelDetails, gradeData, price) => {
     gradeId: gradeData._id,
     actualPrice: price,
     uniqueCode: process.env.UNIQUE_CODE,
-  };
-};
+  }
+}
 
 const buildQueryParam = (phoneNumber, modelId, storage, ram, userId) => {
   return {
@@ -569,14 +580,14 @@ const buildQueryParam = (phoneNumber, modelId, storage, ram, userId) => {
     ...(storage && { storage }),
     ...(ram && { ram }),
     is_selled: false,
-  };
-};
+  }
+}
 
 const customerDetail = async (req, res) => {
   try {
-    const { phoneNumber, name, emailId, leadId } = req.body;
+    const { phoneNumber, name, emailId, leadId } = req.body
     if (!phoneNumber || !name || !emailId || !leadId) {
-      return res.status(400).json({ message: "Required fields are missing" });
+      return res.status(400).json({ message: 'Required fields are missing' })
     }
     await leads.findByIdAndUpdate(
       { _id: leadId },
@@ -585,83 +596,83 @@ const customerDetail = async (req, res) => {
         name,
         emailId,
         is_selled: true,
-        userId: "6540d7df4058702d148699e8",
+        userId: '6540d7df4058702d148699e8',
       },
-    );
-    return res.status(200).json({ message: "Customer Details Added" });
+    )
+    return res.status(200).json({ message: 'Customer Details Added' })
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ message: error.message });
+    console.log(error)
+    return res.status(500).json({ message: error.message })
   }
-};
+}
 
 const convertCsvToJson = (file) => {
-  const workbook = XLSX.read(file.buffer, { type: "buffer" });
-  var sheetNameList = workbook.SheetNames;
-  const options = { defval: "" };
-  return XLSX.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]], options);
-};
+  const workbook = XLSX.read(file.buffer, { type: 'buffer' })
+  var sheetNameList = workbook.SheetNames
+  const options = { defval: '' }
+  return XLSX.utils.sheet_to_json(workbook.Sheets[sheetNameList[0]], options)
+}
 
 function fillTemplate(template, data) {
   return template.replace(/{{(.*?)}}/g, (_, key) => {
-    return data[key.trim()] ?? ""; // safely replace missing values with empty string
-  });
+    return data[key.trim()] ?? '' // safely replace missing values with empty string
+  })
 }
 const maskPhoneNumber = (phNumber) => {
-  const visibleLength = Math.ceil(phNumber?.length * 0.25);
-  const maskedSection = phNumber?.slice(0, phNumber.length - visibleLength);
-  const visibleSection = phNumber?.slice(phNumber?.length - visibleLength);
-  return `${maskedSection.replace(/./g, "x")}${visibleSection}`;
-};
+  const visibleLength = Math.ceil(phNumber?.length * 0.25)
+  const maskedSection = phNumber?.slice(0, phNumber.length - visibleLength)
+  const visibleSection = phNumber?.slice(phNumber?.length - visibleLength)
+  return `${maskedSection.replace(/./g, 'x')}${visibleSection}`
+}
 
 const maskEmail = (email) => {
-  const [namee, domain] = email.split("@");
-  const visibleLength = Math.ceil(namee?.length * 0.25);
-  const maskedName = namee?.slice(0, namee?.length - visibleLength);
-  const visibleName = namee?.slice(namee?.length - visibleLength);
-  return `${maskedName.replace(/./g, "x")}${visibleName}@${domain}`;
-};
+  const [namee, domain] = email.split('@')
+  const visibleLength = Math.ceil(namee?.length * 0.25)
+  const maskedName = namee?.slice(0, namee?.length - visibleLength)
+  const visibleName = namee?.slice(namee?.length - visibleLength)
+  return `${maskedName.replace(/./g, 'x')}${visibleName}@${domain}`
+}
 
 const itemPurchased = async (req, res) => {
   try {
-    const lead = await leadsController.getLeadById(req.body.id);
+    const lead = await leadsController.getLeadById(req.body.id)
     if (!lead || lead.userId._id.toString() !== req.userId) {
-      console.log("entered lead or userId check");
+      console.log('entered lead or userId check')
       return res
         .status(400)
-        .json({ success: false, message: "Invalid user or id" });
+        .json({ success: false, message: 'Invalid user or id' })
     }
 
     if (lead.is_selled) {
       return res
         .status(200)
-        .json({ success: true, message: "Item sold out", data: lead });
+        .json({ success: true, message: 'Item sold out', data: lead })
     }
 
-    lead.bonusPrice = Number(req.body.bonusPrice);
-    lead.is_selled = true;
-    await leads.findByIdAndUpdate({ _id: lead._id }, lead);
+    lead.bonusPrice = Number(req.body.bonusPrice)
+    lead.is_selled = true
+    await leads.findByIdAndUpdate({ _id: lead._id }, lead)
 
-    const templatePath = path.join(dirName, "../templates/invoice.html");
-    const htmlTemplate = fs.readFileSync(templatePath, "utf-8");
+    const templatePath = path.join(dirName, '../templates/invoice.html')
+    const htmlTemplate = fs.readFileSync(templatePath, 'utf-8')
 
-    let RAMStorage = "";
-    const hasRAM = req.body.RAM;
-    const hasStorage = req.body.storage;
+    let RAMStorage = ''
+    const hasRAM = req.body.RAM
+    const hasStorage = req.body.storage
     if (hasRAM || hasStorage) {
-      const ramPart = hasRAM || "";
-      const storagePart = hasStorage || "";
-      const separator = hasRAM && hasStorage ? "/" : "";
-      RAMStorage = `(${ramPart}${separator}${storagePart})`;
+      const ramPart = hasRAM || ''
+      const storagePart = hasStorage || ''
+      const separator = hasRAM && hasStorage ? '/' : ''
+      RAMStorage = `(${ramPart}${separator}${storagePart})`
     }
 
-    const formattedDate = new Date(lead.updatedAt).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+    const formattedDate = new Date(lead.updatedAt).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    })
 
-    const totalPrice = Number(lead.price);
+    const totalPrice = Number(lead.price)
     const htmlContent = fillTemplate(htmlTemplate, {
       name: lead.name,
       email: lead.emailId,
@@ -671,15 +682,15 @@ const itemPurchased = async (req, res) => {
       RAM: lead.ram,
       storage: lead.storage,
       price: totalPrice,
-      imeiNumber: lead.documentId?.IMEI || "",
-      LaptopimeiNumber: lead.documentId?.SerialNumber || "",
+      imeiNumber: lead.documentId?.IMEI || '',
+      LaptopimeiNumber: lead.documentId?.SerialNumber || '',
       maskedPhoneNumber: maskPhoneNumber(lead.phoneNumber),
       maskedEmail: maskEmail(lead.emailId),
       aadharNumber: lead.aadharNumber,
       uniqueCode: lead.uniqueCode,
       formattedDate,
-      storeName: lead?.store?.storeName || "",
-      address: lead?.store?.address || "",
+      storeName: lead?.store?.storeName || '',
+      address: lead?.store?.address || '',
       websiteShortName: process.env.SHORT_NAME,
       companyName: process.env.COMPANY_NAME,
       companyGstin: process.env.COMPANY_GSTIN,
@@ -689,31 +700,31 @@ const itemPurchased = async (req, res) => {
       logoUrl: process.env.LOGO_URL,
       courtJurisdiction: process.env.COURT_JURISDICTION,
       RAMStorage,
-    });
+    })
 
-    const tempHtmlPath = path.join(os.tmpdir(), "temp_invoice.html");
-    fs.writeFileSync(tempHtmlPath, htmlContent);
+    const tempHtmlPath = path.join(os.tmpdir(), 'temp_invoice.html')
+    fs.writeFileSync(tempHtmlPath, htmlContent)
 
-    const form = new FormData();
-    form.append("file", fs.createReadStream(tempHtmlPath), "file.html");
+    const form = new FormData()
+    form.append('file', fs.createReadStream(tempHtmlPath), 'file.html')
 
     const pdfResponse = await axios.post(
-      "https://13uvilapjl.execute-api.ap-south-1.amazonaws.com/api/pdf",
+      'https://13uvilapjl.execute-api.ap-south-1.amazonaws.com/api/pdf',
       form,
       { headers: form.getHeaders() },
-    );
+    )
 
-    const base64Data = pdfResponse.data;
+    const base64Data = pdfResponse.data
     if (!base64Data) {
-      throw new Error("No PDF data in response");
+      throw new Error('No PDF data in response')
     }
-    const pdfBuffer = Buffer.from(base64Data, "base64");
-    fs.unlinkSync(tempHtmlPath);
+    const pdfBuffer = Buffer.from(base64Data, 'base64')
+    fs.unlinkSync(tempHtmlPath)
 
     const mailOptions = {
       from: process.env.MAIL,
       to: lead.emailId,
-      subject: "Your Purchase Confirmation",
+      subject: 'Your Purchase Confirmation',
       html: `
         <p>Dear ${lead.name},</p>
         <p>Thank you for selling your device to <strong>${process.env.APP_NAME}</strong>.</p>
@@ -727,71 +738,71 @@ const itemPurchased = async (req, res) => {
       `,
       attachments: [
         {
-          filename: "receipt.pdf",
+          filename: 'receipt.pdf',
           content: pdfBuffer,
-          contentType: "application/pdf",
+          contentType: 'application/pdf',
         },
       ],
-    };
-    await sendMailWithGraph(mailOptions);
+    }
+    await sendMailWithGraph(mailOptions)
     return res.status(200).json({
       data: lead.modelId,
       id: lead._id,
-      message: "Item Sold Successfully.",
-    });
+      message: 'Item Sold Successfully.',
+    })
   } catch (error) {
-    console.error("🔥 [itemPurchased] Error occurred:", error.message);
-    console.error("📛 Stack trace:", error.stack);
-    return res.status(500).json({ message: error.message });
+    console.error('🔥 [itemPurchased] Error occurred:', error.message)
+    console.error('📛 Stack trace:', error.stack)
+    return res.status(500).json({ message: error.message })
   }
-};
+}
 
 const getSubmitedData = async (req, res) => {
   try {
     let lead = await leads
       .findOne({ userId: req.userId, _id: req.body.id })
-      .populate("modelId");
+      .populate('modelId')
     if (lead.gradeId) {
       lead = await leads
         .findOne({ userId: req.userId, _id: req.body.id })
-        .populate("modelId")
-        .populate("gradeId");
+        .populate('modelId')
+        .populate('gradeId')
     }
     return res
       .status(200)
-      .json({ data: lead, message: "Item Fetched Successfully." });
+      .json({ data: lead, message: 'Item Fetched Successfully.' })
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message })
   }
-};
+}
 
 const buildToUpdate = async (leadId, documentId, lead, body) => {
-  const { emailId, name, phoneNumber, aadharNumber } = body;
-  const sampleUpd = { documentId, gradeId: lead.gradeId };
+  const { emailId, name, phoneNumber, aadharNumber } = body
+  const sampleUpd = { documentId, gradeId: lead.gradeId }
   if (emailId) {
-    sampleUpd.emailId = await emailId;
+    sampleUpd.emailId = await emailId
   }
   if (name) {
-    sampleUpd.name = await name;
+    sampleUpd.name = await name
   }
   if (phoneNumber) {
-    sampleUpd.phoneNumber = await phoneNumber;
+    sampleUpd.phoneNumber = await phoneNumber
   }
   if (aadharNumber) {
-    sampleUpd.aadharNumber = await aadharNumber;
+    sampleUpd.aadharNumber = await aadharNumber
   }
-  return sampleUpd;
-};
+  return sampleUpd
+}
 
 const uploadDocuments = async (req, res) => {
   try {
-    const { IMEI, leadId } = req.body;
-    const Bucket = process.env.S3_BUCKET_NAME;
-    const Region = process.env.S3_REGION;
-    const Folder = process.env.S3_FOLDER;
+    const { IMEI, leadId } = req.body
+    const Bucket = process.env.S3_BUCKET_NAME
+    const Region = process.env.S3_REGION
+    const Folder = process.env.S3_FOLDER
 
     const obj = {
-      IMEI: IMEI || "",
+      IMEI: IMEI || '',
       adhar: {
         front: `https://${Bucket}.s3.${Region}.amazonaws.com/${Folder}/${IMEI}-adhaarFront`,
         back: `https://${Bucket}.s3.${Region}.amazonaws.com/${Folder}/${IMEI}-adhaarBack`,
@@ -808,44 +819,44 @@ const uploadDocuments = async (req, res) => {
       signature: `https://${Bucket}.s3.${Region}.amazonaws.com/${Folder}/${IMEI}-signature`,
       userId: req.userId,
       leadId: leadId,
-    };
-    const data = await documents.create(obj);
-    const lead = await leads.findOne({ _id: leadId }).select("gradeId");
-    const toUpdate = await buildToUpdate(leadId, data._id, lead, req.body);
+    }
+    const data = await documents.create(obj)
+    const lead = await leads.findOne({ _id: leadId }).select('gradeId')
+    const toUpdate = await buildToUpdate(leadId, data._id, lead, req.body)
 
-    await leads.findByIdAndUpdate({ _id: leadId }, toUpdate);
+    await leads.findByIdAndUpdate({ _id: leadId }, toUpdate)
     return res
       .status(200)
-      .json({ data, message: "Documents uploaded successfully." });
+      .json({ data, message: 'Documents uploaded successfully.' })
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ message: error.message });
+    console.log(error)
+    return res.status(500).json({ message: error.message })
   }
-};
+}
 
 const getDocuments = async (req, res) => {
   try {
-    const page = Number(req.query.page) || 0;
-    const limit = Number(req.query.limit) || 10;
+    const page = Number(req.query.page) || 0
+    const limit = Number(req.query.limit) || 10
     const data = await documents
       .find({})
-      .populate("userId")
-      .populate("leadId")
+      .populate('userId')
+      .populate('leadId')
       .limit(limit)
       .skip(page * limit)
-      .sort({ createdAt: -1 });
-    const totalCounts = await documents.countDocuments({});
+      .sort({ createdAt: -1 })
+    const totalCounts = await documents.countDocuments({})
     res
       .status(200)
-      .json({ data, totalCounts, message: "documents fetched successfully." });
+      .json({ data, totalCounts, message: 'documents fetched successfully.' })
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: error.message });
+    console.log(error)
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
 const questionnaireList = async (req, res) => {
-  const deviceType = req.query.deviceType || "CTG1";
+  const deviceType = req.query.deviceType || 'CTG1'
 
   try {
     const data = await questionnaire.aggregate([
@@ -856,83 +867,83 @@ const questionnaireList = async (req, res) => {
       },
       {
         $lookup: {
-          from: "categories",
-          localField: "type",
-          foreignField: "categoryCode",
-          as: "categoryInfo",
+          from: 'categories',
+          localField: 'type',
+          foreignField: 'categoryCode',
+          as: 'categoryInfo',
         },
       },
       {
-        $unwind: { path: "$categoryInfo", preserveNullAndEmptyArrays: true },
+        $unwind: { path: '$categoryInfo', preserveNullAndEmptyArrays: true },
       },
       {
         $group: {
-          _id: "$group",
-          data: { $push: "$$ROOT" }, // Keep all fields in the array
+          _id: '$group',
+          data: { $push: '$$ROOT' }, // Keep all fields in the array
         },
       },
-    ]);
+    ])
     res
       .status(200)
-      .json({ data, message: "questionnaire List fetched successfully." });
+      .json({ data, message: 'questionnaire List fetched successfully.' })
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message })
   }
-};
+}
 
 const update = async (req, res) => {
   try {
-    const { id, group, yes, no, quetion } = req.body;
+    const { id, group, yes, no, quetion } = req.body
     if (!id || !group || !yes || !no || !quetion || !req.body.default) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: 'All fields are required' })
     }
     const result = await questionnaire.findByIdAndUpdate(
       { _id: req.body._id || req.body.id },
       req.body,
       { new: true },
-    );
-    return res.status(200).json({ result });
+    )
+    return res.status(200).json({ result })
   } catch (error) {
-    return res.status(500).json({ message: error.message, status: 500 });
+    return res.status(500).json({ message: error.message, status: 500 })
   }
-};
+}
 
 const deleteById = async (req, res) => {
   try {
-    const { id } = req.query;
+    const { id } = req.query
     if (!id) {
-      return res.status(400).json({ message: "id is required" });
+      return res.status(400).json({ message: 'id is required' })
     }
-    const result = await questionnaire.findByIdAndDelete(id);
-    return res.status(200).json({ result });
+    const result = await questionnaire.findByIdAndDelete(id)
+    return res.status(200).json({ result })
   } catch (error) {
-    return res.status(500).json({ message: error.message, status: 500 });
+    return res.status(500).json({ message: error.message, status: 500 })
   }
-};
+}
 
 function FunctionalUpd(QNA, query) {
   const functional = QNA?.Functional
     ? QNA.Functional.filter((e) => e.answer === FUNCTIONAL_MAJOR1)
-    : [];
-  query.functionalCode = FUNCTIONAL_MAJOR1;
+    : []
+  query.functionalCode = FUNCTIONAL_MAJOR1
   if (!functional.length) {
-    query.functionalCode = FUNCTIONAL_MAJOR1_1;
+    query.functionalCode = FUNCTIONAL_MAJOR1_1
   }
 }
 
 function PhysicalUpd(QNA, query) {
   let physical = QNA?.Physical
     ? QNA.Physical.filter((e) => e.answer === COSMETICS4)
-    : [];
-  query.cosmeticsCode = COSMETICS4;
+    : []
+  query.cosmeticsCode = COSMETICS4
   if (!physical.length) {
-    physical = QNA.Physical.filter((e) => e.answer === COSMETICS3);
-    query.cosmeticsCode = COSMETICS3;
+    physical = QNA.Physical.filter((e) => e.answer === COSMETICS3)
+    query.cosmeticsCode = COSMETICS3
     if (!physical.length) {
-      physical = QNA.Physical.filter((e) => e.answer === COSMETICS2);
-      query.cosmeticsCode = COSMETICS2;
+      physical = QNA.Physical.filter((e) => e.answer === COSMETICS2)
+      query.cosmeticsCode = COSMETICS2
       if (!physical.length) {
-        query.cosmeticsCode = COSMETICS1;
+        query.cosmeticsCode = COSMETICS1
       }
     }
   }
@@ -941,14 +952,14 @@ function PhysicalUpd(QNA, query) {
 function AccessoriesUpd(QNA, query) {
   let accessories = QNA?.Accessories
     ? QNA.Accessories.filter((e) => e.answer === ACCESSORIES3)
-    : [];
-  query.accessoriesCode = ACCESSORIES3;
+    : []
+  query.accessoriesCode = ACCESSORIES3
 
   if (!accessories.length) {
-    accessories = QNA.Accessories.filter((e) => e.answer === ACCESSORIES1);
-    query.accessoriesCode = ACCESSORIES1;
+    accessories = QNA.Accessories.filter((e) => e.answer === ACCESSORIES1)
+    query.accessoriesCode = ACCESSORIES1
     if (!accessories.length) {
-      query.accessoriesCode = ACCESSORIES2;
+      query.accessoriesCode = ACCESSORIES2
     }
   }
 }
@@ -956,55 +967,52 @@ function AccessoriesUpd(QNA, query) {
 //calcuatle the watch prce
 const calculatePriceWatch = async (req, res) => {
   try {
-    const { QNA, modelId, name, phoneNumber, aadharNumber } = req.body;
-    const query = {};
+    const { QNA, modelId, name, phoneNumber, aadharNumber } = req.body
+    const query = {}
     if (!QNA || !modelId) {
       return res.status(403).json({
         success: false,
-        message: "QNA and modelId are required",
-      });
+        message: 'QNA and modelId are required',
+      })
     }
 
     const warranty = QNA?.Warranty
       ? QNA.Warranty.filter((e) => e.answer === WARRANTY1)
-      : [];
-    query.warrentyCode = warranty.length ? WARRANTY1 : WARRANTY2;
+      : []
+    query.warrentyCode = warranty.length ? WARRANTY1 : WARRANTY2
 
-    FunctionalUpd(QNA, query);
-    PhysicalUpd(QNA, query);
-    AccessoriesUpd(QNA, query);
+    FunctionalUpd(QNA, query)
+    PhysicalUpd(QNA, query)
+    AccessoriesUpd(QNA, query)
     //settig uniquew code
-    const gradeData = await condtionCodesWatch.findOne(query).select("grade");
+    const gradeData = await condtionCodesWatch.findOne(query).select('grade')
 
     if (!gradeData) {
-      console.error(
-        "No matching grade condition found for watch query:",
-        query,
-      );
+      console.error('No matching grade condition found for watch query:', query)
       // Default to lowest grade 'E' if no condition matches
-      gradeData = { grade: "E" };
+      gradeData = { grade: 'E' }
     }
 
-    const priceData = await gradeprices.findOne({ modelId }).select("grades");
+    const priceData = await gradeprices.findOne({ modelId }).select('grades')
 
     if (!priceData || !priceData.grades) {
-      console.error(`No price data found for watch modelId: ${modelId}`);
+      console.error(`No price data found for watch modelId: ${modelId}`)
       return res.status(404).json({
         success: false,
-        message: "Price data not found for this watch configuration.",
-      });
+        message: 'Price data not found for this watch configuration.',
+      })
     }
 
-    const price = priceData.grades[convertGrade(gradeData.grade)];
-    const actualPrice = price;
-    const modelData = await models.findOne({ _id: modelId });
+    const price = priceData.grades[convertGrade(gradeData.grade)]
+    const actualPrice = price
+    const modelData = await models.findOne({ _id: modelId })
 
     if (!modelData) {
-      console.error(`Model data not found for watch modelId: ${modelId}`);
+      console.error(`Model data not found for watch modelId: ${modelId}`)
       return res.status(404).json({
         success: false,
-        message: "Device model not found.",
-      });
+        message: 'Device model not found.',
+      })
     }
 
     const queryParam = {
@@ -1012,7 +1020,7 @@ const calculatePriceWatch = async (req, res) => {
       modelId,
       userId: req.userId,
       is_selled: false,
-    };
+    }
     const obj = {
       QNA,
       modelId,
@@ -1026,12 +1034,12 @@ const calculatePriceWatch = async (req, res) => {
       phoneNumber,
       aadharNumber,
       name,
-    };
+    }
     const { lead, uniqueCode } = await generateLeadAndUpdateOrCreate(
       req,
       obj,
       queryParam,
-    );
+    )
     return res.status(200).json({
       data: {
         id: lead._id,
@@ -1039,43 +1047,43 @@ const calculatePriceWatch = async (req, res) => {
         grade: gradeData.grade,
         uniqueCode,
       },
-      message: "price fetched successfully.",
-    });
+      message: 'price fetched successfully.',
+    })
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ message: error.message });
+    console.log(error)
+    return res.status(500).json({ message: error.message })
   }
-};
+}
 
 async function generateLeadAndUpdateOrCreate(req, obj, queryParam) {
-  let lead;
-  const doc = await leads.findOne(queryParam).select("uniqueCode");
+  let lead
+  const doc = await leads.findOne(queryParam).select('uniqueCode')
   const lastDoc = await leads
-    .findOne({ userId: req.userId, uniqueCode: { $ne: "" } })
-    .sort({ createdAt: -1 });
-  const inputString = req?.storeName || "Switchkart";
-  const words = inputString?.split(" ");
-  const firstCharacters = words.map((word) => word.charAt(0));
-  const resultString = firstCharacters.join("");
+    .findOne({ userId: req.userId, uniqueCode: { $ne: '' } })
+    .sort({ createdAt: -1 })
+  const inputString = req?.storeName || 'Switchkart'
+  const words = inputString?.split(' ')
+  const firstCharacters = words.map((word) => word.charAt(0))
+  const resultString = firstCharacters.join('')
   if (lastDoc) {
-    const numbersArray = lastDoc.uniqueCode.match(/\d+/g);
-    const code = numbersArray ? numbersArray.map(Number) : [];
+    const numbersArray = lastDoc.uniqueCode.match(/\d+/g)
+    const code = numbersArray ? numbersArray.map(Number) : []
     obj.uniqueCode = `${process.env.UNIQUE_CODE_SUB}${resultString}${
       Number(code) + 1
-    }`;
+    }`
   }
 
   if (doc) {
-    obj.uniqueCode = doc.uniqueCode;
-    lead = await leads.findByIdAndUpdate({ _id: doc._id }, obj);
+    obj.uniqueCode = doc.uniqueCode
+    lead = await leads.findByIdAndUpdate({ _id: doc._id }, obj)
   } else {
-    console.log(obj);
-    obj.bonusPrice = 0;
-    obj.ram = obj.ram || "NA";
-    obj.storage = obj.storage || "NA";
-    lead = await leads.create(obj);
+    console.log(obj)
+    obj.bonusPrice = 0
+    obj.ram = obj.ram || 'NA'
+    obj.storage = obj.storage || 'NA'
+    lead = await leads.create(obj)
   }
-  return { lead, uniqueCode: obj.uniqueCode };
+  return { lead, uniqueCode: obj.uniqueCode }
 }
 
 export default {
@@ -1093,4 +1101,4 @@ export default {
   deleteById,
   calculatePriceWatch,
   customerDetail,
-};
+}

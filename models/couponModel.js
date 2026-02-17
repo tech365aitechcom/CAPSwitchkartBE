@@ -10,11 +10,14 @@ const couponSchema = new Schema(
       trim: true,
       unique: true,
     },
-    storeId: {
-      type: Schema.Types.ObjectId,
-      ref: "store",
-      required: true,
-    },
+    //storeId is now an array of ObjectIds
+    storeId: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "store",
+        required: true,
+      },
+    ],
     devicePriceRange: {
       min: { type: Number, required: true, default: 0 },
       max: { type: Number, required: true, default: Infinity },
